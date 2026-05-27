@@ -1,0 +1,17 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries:
+      - "sqlc/query.sql"
+      - "sqlc/query_blob_ref_batches.sql"
+    schema: "sqlc/schema.sql"
+    gen:
+      go:
+        package: "sqlstore"
+        out: "sqlstore"
+        emit_prepared_queries: true
+        emit_empty_slices: true
+        emit_db_tags: true
+        emit_pointers_for_null_types: true
+        # emit_json_tags: true
+        # json_tags_case_style: "camel"
