@@ -9,9 +9,9 @@ import (
 	"context"
 )
 
-const getBlobValuesByRef = `-- name: GetBlobValuesByRef :many
-SELECT DISTINCT b.blob_id, b.blob_value
-FROM blob_refs br
+const getBlobValuesByIdentity = `-- name: GetBlobValuesByIdentity :many
+SELECT DISTINCT b.blob_id, b.blob_key, b.blob_value
+FROM blob_entries br
 JOIN blobs b ON b.blob_id = br.blob_id
 WHERE br.namespace = ?1
   AND br.subject = ?2
@@ -19,20 +19,21 @@ WHERE br.namespace = ?1
   AND br.meta_tag = ?4
 `
 
-type GetBlobValuesByRefParams struct {
+type GetBlobValuesByIdentityParams struct {
 	Namespace string `db:"namespace"`
 	Subject   int64  `db:"subject"`
 	ID        int64  `db:"id"`
 	MetaTag   string `db:"meta_tag"`
 }
 
-type GetBlobValuesByRefRow struct {
+type GetBlobValuesByIdentityRow struct {
 	BlobID    int64  `db:"blob_id"`
+	BlobKey   string `db:"blob_key"`
 	BlobValue []byte `db:"blob_value"`
 }
 
-func (q *Queries) GetBlobValuesByRef(ctx context.Context, arg GetBlobValuesByRefParams) ([]GetBlobValuesByRefRow, error) {
-	rows, err := q.query(ctx, q.getBlobValuesByRefStmt, getBlobValuesByRef,
+func (q *Queries) GetBlobValuesByIdentity(ctx context.Context, arg GetBlobValuesByIdentityParams) ([]GetBlobValuesByIdentityRow, error) {
+	rows, err := q.query(ctx, q.getBlobValuesByIdentityStmt, getBlobValuesByIdentity,
 		arg.Namespace,
 		arg.Subject,
 		arg.ID,
@@ -42,10 +43,10 @@ func (q *Queries) GetBlobValuesByRef(ctx context.Context, arg GetBlobValuesByRef
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetBlobValuesByRefRow{}
+	items := []GetBlobValuesByIdentityRow{}
 	for rows.Next() {
-		var i GetBlobValuesByRefRow
-		if err := rows.Scan(&i.BlobID, &i.BlobValue); err != nil {
+		var i GetBlobValuesByIdentityRow
+		if err := rows.Scan(&i.BlobID, &i.BlobKey, &i.BlobValue); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -60,8 +61,8 @@ func (q *Queries) GetBlobValuesByRef(ctx context.Context, arg GetBlobValuesByRef
 }
 
 const getBlobValuesByScope = `-- name: GetBlobValuesByScope :many
-SELECT DISTINCT b.blob_id, b.blob_value
-FROM blob_refs br
+SELECT DISTINCT b.blob_id, b.blob_key, b.blob_value
+FROM blob_entries br
 JOIN blobs b ON b.blob_id = br.blob_id
 WHERE br.namespace = ?1
   AND br.subject = ?2
@@ -74,6 +75,7 @@ type GetBlobValuesByScopeParams struct {
 
 type GetBlobValuesByScopeRow struct {
 	BlobID    int64  `db:"blob_id"`
+	BlobKey   string `db:"blob_key"`
 	BlobValue []byte `db:"blob_value"`
 }
 
@@ -86,7 +88,7 @@ func (q *Queries) GetBlobValuesByScope(ctx context.Context, arg GetBlobValuesByS
 	items := []GetBlobValuesByScopeRow{}
 	for rows.Next() {
 		var i GetBlobValuesByScopeRow
-		if err := rows.Scan(&i.BlobID, &i.BlobValue); err != nil {
+		if err := rows.Scan(&i.BlobID, &i.BlobKey, &i.BlobValue); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -100,8 +102,8 @@ func (q *Queries) GetBlobValuesByScope(ctx context.Context, arg GetBlobValuesByS
 	return items, nil
 }
 
-const insertBlobRef = `-- name: InsertBlobRef :exec
-INSERT INTO blob_refs (
+const insertBlobEntry = `-- name: InsertBlobEntry :exec
+INSERT INTO blob_entries (
     namespace,
     subject,
     id,
@@ -116,7 +118,7 @@ INSERT INTO blob_refs (
 )
 `
 
-type InsertBlobRefParams struct {
+type InsertBlobEntryParams struct {
 	Namespace string `db:"namespace"`
 	Subject   int64  `db:"subject"`
 	ID        int64  `db:"id"`
@@ -124,12 +126,37 @@ type InsertBlobRefParams struct {
 	BlobID    int64  `db:"blob_id"`
 }
 
-func (q *Queries) InsertBlobRef(ctx context.Context, arg InsertBlobRefParams) error {
-	_, err := q.exec(ctx, q.insertBlobRefStmt, insertBlobRef,
+func (q *Queries) InsertBlobEntry(ctx context.Context, arg InsertBlobEntryParams) error {
+	_, err := q.exec(ctx, q.insertBlobEntryStmt, insertBlobEntry,
 		arg.Namespace,
 		arg.Subject,
 		arg.ID,
 		arg.MetaTag,
+		arg.BlobID,
+	)
+	return err
+}
+
+const updateBlobValue = `-- name: UpdateBlobValue :exec
+UPDATE blobs
+SET blob_key = ?1,
+    blob_value = ?2,
+    updated_at = ?3
+WHERE blob_id = ?4
+`
+
+type UpdateBlobValueParams struct {
+	BlobKey   string `db:"blob_key"`
+	BlobValue []byte `db:"blob_value"`
+	UpdatedAt int64  `db:"updated_at"`
+	BlobID    int64  `db:"blob_id"`
+}
+
+func (q *Queries) UpdateBlobValue(ctx context.Context, arg UpdateBlobValueParams) error {
+	_, err := q.exec(ctx, q.updateBlobValueStmt, updateBlobValue,
+		arg.BlobKey,
+		arg.BlobValue,
+		arg.UpdatedAt,
 		arg.BlobID,
 	)
 	return err

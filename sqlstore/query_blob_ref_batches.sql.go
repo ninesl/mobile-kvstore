@@ -9,8 +9,8 @@ import (
 	"context"
 )
 
-const getBlobRefsByScopeAnd100Refs = `-- name: GetBlobRefsByScopeAnd100Refs :many
-WITH refs(id, meta_tag) AS (
+const getBlobEntriesByScopeAnd100Entries = `-- name: GetBlobEntriesByScopeAnd100Entries :many
+WITH entries(id, meta_tag) AS (
   SELECT ?3 AS id, ?4 AS meta_tag
   UNION ALL SELECT ?5 AS id, ?6 AS meta_tag
   UNION ALL SELECT ?7 AS id, ?8 AS meta_tag
@@ -112,19 +112,19 @@ WITH refs(id, meta_tag) AS (
   UNION ALL SELECT ?199 AS id, ?200 AS meta_tag
   UNION ALL SELECT ?201 AS id, ?202 AS meta_tag
 )
-SELECT DISTINCT br.blob_id
-FROM refs r
-JOIN blob_refs br
-  ON br.id = r.id
- AND br.meta_tag = r.meta_tag
-WHERE br.namespace = ?1
-  AND br.subject = ?2
-  -- Both checks are intentionally redundant: caller promises refs are all-null or all-non-null pairs.
-  AND r.id IS NOT NULL
-  AND r.meta_tag IS NOT NULL
+SELECT DISTINCT be.blob_id
+FROM entries e
+JOIN blob_entries be
+  ON be.id = e.id
+ AND be.meta_tag = e.meta_tag
+WHERE be.namespace = ?1
+  AND be.subject = ?2
+  -- Both checks are intentionally redundant: caller promises entries are all-null or all-non-null pairs.
+  AND e.id IS NOT NULL
+  AND e.meta_tag IS NOT NULL
 `
 
-type GetBlobRefsByScopeAnd100RefsParams struct {
+type GetBlobEntriesByScopeAnd100EntriesParams struct {
 	Namespace string  `db:"namespace"`
 	Subject   int64   `db:"subject"`
 	ID00      *int64  `db:"id_00"`
@@ -329,8 +329,8 @@ type GetBlobRefsByScopeAnd100RefsParams struct {
 	MetaTag99 *string `db:"meta_tag_99"`
 }
 
-func (q *Queries) GetBlobRefsByScopeAnd100Refs(ctx context.Context, arg GetBlobRefsByScopeAnd100RefsParams) ([]int64, error) {
-	rows, err := q.query(ctx, q.getBlobRefsByScopeAnd100RefsStmt, getBlobRefsByScopeAnd100Refs,
+func (q *Queries) GetBlobEntriesByScopeAnd100Entries(ctx context.Context, arg GetBlobEntriesByScopeAnd100EntriesParams) ([]int64, error) {
+	rows, err := q.query(ctx, q.getBlobEntriesByScopeAnd100EntriesStmt, getBlobEntriesByScopeAnd100Entries,
 		arg.Namespace,
 		arg.Subject,
 		arg.ID00,
@@ -555,8 +555,8 @@ func (q *Queries) GetBlobRefsByScopeAnd100Refs(ctx context.Context, arg GetBlobR
 	return items, nil
 }
 
-const getBlobRefsByScopeAnd10Refs = `-- name: GetBlobRefsByScopeAnd10Refs :many
-WITH refs(id, meta_tag) AS (
+const getBlobEntriesByScopeAnd10Entries = `-- name: GetBlobEntriesByScopeAnd10Entries :many
+WITH entries(id, meta_tag) AS (
   SELECT ?3 AS id, ?4 AS meta_tag
   UNION ALL SELECT ?5 AS id, ?6 AS meta_tag
   UNION ALL SELECT ?7 AS id, ?8 AS meta_tag
@@ -568,19 +568,19 @@ WITH refs(id, meta_tag) AS (
   UNION ALL SELECT ?19 AS id, ?20 AS meta_tag
   UNION ALL SELECT ?21 AS id, ?22 AS meta_tag
 )
-SELECT DISTINCT br.blob_id
-FROM refs r
-JOIN blob_refs br
-  ON br.id = r.id
- AND br.meta_tag = r.meta_tag
-WHERE br.namespace = ?1
-  AND br.subject = ?2
-  -- Both checks are intentionally redundant: caller promises refs are all-null or all-non-null pairs.
-  AND r.id IS NOT NULL
-  AND r.meta_tag IS NOT NULL
+SELECT DISTINCT be.blob_id
+FROM entries e
+JOIN blob_entries be
+  ON be.id = e.id
+ AND be.meta_tag = e.meta_tag
+WHERE be.namespace = ?1
+  AND be.subject = ?2
+  -- Both checks are intentionally redundant: caller promises entries are all-null or all-non-null pairs.
+  AND e.id IS NOT NULL
+  AND e.meta_tag IS NOT NULL
 `
 
-type GetBlobRefsByScopeAnd10RefsParams struct {
+type GetBlobEntriesByScopeAnd10EntriesParams struct {
 	Namespace string  `db:"namespace"`
 	Subject   int64   `db:"subject"`
 	ID00      *int64  `db:"id_00"`
@@ -605,8 +605,8 @@ type GetBlobRefsByScopeAnd10RefsParams struct {
 	MetaTag09 *string `db:"meta_tag_09"`
 }
 
-func (q *Queries) GetBlobRefsByScopeAnd10Refs(ctx context.Context, arg GetBlobRefsByScopeAnd10RefsParams) ([]int64, error) {
-	rows, err := q.query(ctx, q.getBlobRefsByScopeAnd10RefsStmt, getBlobRefsByScopeAnd10Refs,
+func (q *Queries) GetBlobEntriesByScopeAnd10Entries(ctx context.Context, arg GetBlobEntriesByScopeAnd10EntriesParams) ([]int64, error) {
+	rows, err := q.query(ctx, q.getBlobEntriesByScopeAnd10EntriesStmt, getBlobEntriesByScopeAnd10Entries,
 		arg.Namespace,
 		arg.Subject,
 		arg.ID00,

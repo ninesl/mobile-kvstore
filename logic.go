@@ -2,7 +2,6 @@ package kvstore
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -17,109 +16,133 @@ type storer struct {
 // TODO: this function will also have a routine or be in conjunction
 // with validating TTL or whatever else it deemed needed
 //
-// returns existing blob IDs for refs in this scope.
+// returns existing blob IDs for identities in this scope.
 func (items ItemArgs) hasBlob(s storer) ([]int, error) {
 	var errs []error
 	if items.Scope.Namespace == "" {
 		errs = append(errs, fmt.Errorf("namespace is required"))
 	}
-	if len(items.Refs) == 0 {
-		errs = append(errs, fmt.Errorf("no item refs to check for blob"))
+	if len(items.Identities) == 0 {
+		errs = append(errs, fmt.Errorf("no item identities to check for blob"))
 	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
 
-	refs := make([]sqliteRefPair, 0, len(items.Refs))
-	for i, ref := range items.Refs {
-		if ref.MetaTag == "" {
-			errs = append(errs, fmt.Errorf("refs[%d]: meta_tag is required", i))
+	entries := make([]sqliteEntryPair, 0, len(items.Identities))
+	for i, identity := range items.Identities {
+		if identity.MetaTag == "" {
+			errs = append(errs, fmt.Errorf("identities[%d]: meta_tag is required", i))
 			continue
 		}
-		refs = append(refs, ref.toSqlitePair())
+		entries = append(entries, identity.toSqliteEntry())
 	}
 	if len(errs) > 0 {
 		return nil, errors.Join(errs...)
 	}
+
 	blobIDs := make([]int, 0)
 	seen := make(map[int64]struct{})
-	// Process 100-ref chunks first, then the modulo/% remainder through the 10-ref query.
+
+	// Process 100-entry chunks first, then the modulo/% remainder through the 10-entry query.
 	// Fixed chunk sizes let sqlc keep prepared queries while nil pair slots handle short batches.
-	for len(refs) >= 100 {
-		params, err := refsTo100Params(items.Scope, refs[:100])
+	for len(entries) >= 100 {
+		params, err := entriesTo100Params(items.Scope, entries[:100])
 		if err != nil {
 			return nil, err
 		}
-		rows, err := s.queries.GetBlobRefsByScopeAnd100Refs(context.Background(), params)
-		if err != nil {
-			return nil, err
-		}
-		blobIDs = appendDistinctBlobIDs(blobIDs, seen, rows)
-		refs = refs[100:]
-	}
-
-	for len(refs) > 0 {
-		n := min(10, len(refs))
-		params, err := refsTo10Params(items.Scope, refs[:n])
-		if err != nil {
-			return nil, err
-		}
-		rows, err := s.queries.GetBlobRefsByScopeAnd10Refs(context.Background(), params)
+		rows, err := s.queries.GetBlobEntriesByScopeAnd100Entries(context.Background(), params)
 		if err != nil {
 			return nil, err
 		}
 		blobIDs = appendDistinctBlobIDs(blobIDs, seen, rows)
-		refs = refs[n:]
+		entries = entries[100:]
 	}
 
+	for len(entries) > 0 {
+		n := min(10, len(entries))
+		params, err := entriesTo10Params(items.Scope, entries[:n])
+		if err != nil {
+			return nil, err
+		}
+		rows, err := s.queries.GetBlobEntriesByScopeAnd10Entries(context.Background(), params)
+		if err != nil {
+			return nil, err
+		}
+		blobIDs = appendDistinctBlobIDs(blobIDs, seen, rows)
+		entries = entries[n:]
+	}
 	return blobIDs, nil
 }
 
-func (s storer) Get(namespace string, subject int, decode DecoderFunc) ([]any, error) {
-	rows, err := s.queries.GetBlobValuesByScope(context.Background(),
+func (s storer) Get(scope Scope, decode DecoderFunc) ([]any, error) {
+	rows, err := s.queries.GetBlobValuesByScope(
+		context.Background(),
 		sqlstore.GetBlobValuesByScopeParams{
-			Namespace: namespace,
-			Subject:   int64(subject),
+			Namespace: scope.Namespace,
+			Subject:   int64(scope.Subject),
 		})
 	if err != nil {
 		return nil, err
 	}
-
 	return decodeResults(blobRowsFromScope(rows), decode)
 }
 
-func (s storer) GetByRef(f Filters, decode DecoderFunc) ([]any, error) {
-	rows, err := s.queries.GetBlobValuesByRef(context.Background(),
-		sqlstore.GetBlobValuesByRefParams{
+func (s storer) GetByFilter(f Filter, decode DecoderFunc) ([]any, error) {
+	rows, err := s.queries.GetBlobValuesByIdentity(
+		context.Background(),
+		sqlstore.GetBlobValuesByIdentityParams{
 			Namespace: f.Scope.Namespace,
 			Subject:   int64(f.Scope.Subject),
-			ID:        int64(f.Refs.ID),
-			MetaTag:   f.Refs.MetaTag,
+			ID:        int64(f.Identity.ID),
+			MetaTag:   f.Identity.MetaTag,
 		})
 	if err != nil {
 		return nil, err
 	}
-
-	return decodeResults(blobRowsFromRef(rows), decode)
+	return decodeResults(blobRowsFromIdentity(rows), decode)
 }
 
+func (s storer) Count(filter CountFilter) int { return 0 }
+
+func (s storer) ClearByScope(scope Scope) error { return nil }
+
+func (s storer) ClearBySubject(subject string) error { return nil }
+
+func (s storer) ClearByIdentity(identity Identity) error { return nil }
+
+func (s storer) ClearByScopeIdentity(scope Scope, identity Identity) error { return nil }
+
+func (s storer) ClearByMetaTag(tag string) error { return nil }
+
+func (s storer) ClearByBlobKey(key string) error { return nil }
+
 type blobRow struct {
-	BlobID int64
-	Data   []byte
+	BlobID  int64
+	BlobKey string
+	Data    []byte
 }
 
 func blobRowsFromScope(rows []sqlstore.GetBlobValuesByScopeRow) []blobRow {
 	results := make([]blobRow, 0, len(rows))
 	for _, row := range rows {
-		results = append(results, blobRow{BlobID: row.BlobID, Data: row.BlobValue})
+		results = append(results, blobRow{
+			BlobID:  row.BlobID,
+			BlobKey: row.BlobKey,
+			Data:    row.BlobValue,
+		})
 	}
 	return results
 }
 
-func blobRowsFromRef(rows []sqlstore.GetBlobValuesByRefRow) []blobRow {
+func blobRowsFromIdentity(rows []sqlstore.GetBlobValuesByIdentityRow) []blobRow {
 	results := make([]blobRow, 0, len(rows))
 	for _, row := range rows {
-		results = append(results, blobRow{BlobID: row.BlobID, Data: row.BlobValue})
+		results = append(results, blobRow{
+			BlobID:  row.BlobID,
+			BlobKey: row.BlobKey,
+			Data:    row.BlobValue,
+		})
 	}
 	return results
 }
@@ -132,7 +155,6 @@ func decodeResults(results []blobRow, decode DecoderFunc) ([]any, error) {
 		if _, ok := decoded[row.BlobID]; ok {
 			continue
 		}
-
 		o, err := decode(row.Data)
 		if err != nil {
 			errs = append(errs, err)
@@ -148,27 +170,44 @@ func decodeResults(results []blobRow, decode DecoderFunc) ([]any, error) {
 }
 
 // returns the autoincremented blob_id
-func (s storer) storeBlob(data any, encode EncoderFunc) (int, error) {
+func (s storer) storeBlob(data any, encode EncoderFunc, blobKey string) (int, error) {
 	blob, err := encode(data)
 	if err != nil {
 		return -1, err
 	}
 	blobID, err := s.queries.UpsertBlob(context.Background(),
 		sqlstore.UpsertBlobParams{
-			BlobKey:   blob.SerializedKey,
-			BlobValue: blob.Data,
+			BlobKey:   blobKey,
+			BlobValue: blob,
 			UpdatedAt: time.Now().UnixNano(),
 		})
 	return int(blobID), err
 }
 
-func (s storer) storeRef(scope BatchScope, ref ItemRef, blobID int) error {
-	return s.queries.InsertBlobRef(context.Background(),
-		sqlstore.InsertBlobRefParams{
+// data MUST be compat with encoderFunc.
+// EncoderFunc should user-defined error
+// if the data is wrong somehow
+func (s storer) overwriteBlob(blobID int, data any, encode EncoderFunc, blobKey string) error {
+	blob, err := encode(data)
+	if err != nil {
+		return err
+	}
+	return s.queries.UpdateBlobValue(context.Background(),
+		sqlstore.UpdateBlobValueParams{
+			BlobKey:   blobKey,
+			BlobValue: blob,
+			UpdatedAt: time.Now().UnixNano(),
+			BlobID:    int64(blobID),
+		})
+}
+
+func (s storer) storeIdentity(scope Scope, identity Identity, blobID int) error {
+	return s.queries.InsertBlobEntry(context.Background(),
+		sqlstore.InsertBlobEntryParams{
 			Namespace: scope.Namespace,
 			Subject:   int64(scope.Subject),
-			ID:        int64(ref.ID),
-			MetaTag:   ref.MetaTag,
+			ID:        int64(identity.ID),
+			MetaTag:   identity.MetaTag,
 			BlobID:    int64(blobID),
 		})
 }
@@ -184,34 +223,45 @@ func (s storer) Store(storeItem StoreItem) error {
 		err     error
 	)
 
+	// check if storer has the serialized key
+
 	// assign/find blob_id
-	// TODO: TTL logic
 	if blobIDs, err = items.hasBlob(s); err != nil {
 		return err
 	} else if len(blobIDs) == 0 {
 		var blobID int
-		blobID, err = s.storeBlob(items.Data, items.Encode)
+		blobID, err = s.storeBlob(items.Data, items.Encode, items.BlobKey)
 		if err != nil {
 			return err
 		}
 		blobIDs = append(blobIDs, blobID)
+	} else {
+		// TODO: TTL logic to verify blob is new?
+		// should be based on scope and identity?
+		for _, blobID := range blobIDs {
+			if err := s.overwriteBlob(
+				blobID,
+				items.Data,
+				items.Encode,
+				items.BlobKey,
+			); err != nil {
+				return err
+			}
+		}
 	}
 
 	var errs []error
 	for _, blobID := range blobIDs {
-		for _, ref := range items.Refs {
-			if err := s.storeRef(items.Scope, ref, blobID); err != nil {
+		for _, identity := range items.Identities {
+			if err := s.storeIdentity(
+				items.Scope,
+				identity,
+				blobID,
+			); err != nil {
 				errs = append(errs, err)
 			}
 		}
 	}
 
 	return errors.Join(errs...)
-}
-
-// Expects a sqlite file, can be a blank .db or one that was created by this package
-func New(conn *sql.DB) Store {
-	return storer{
-		queries: sqlstore.New(conn),
-	}
 }

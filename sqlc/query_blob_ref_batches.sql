@@ -1,5 +1,5 @@
--- name: GetBlobRefsByScopeAnd10Refs :many
-WITH refs(id, meta_tag) AS (
+-- name: GetBlobEntriesByScopeAnd10Entries :many
+WITH entries(id, meta_tag) AS (
   SELECT sqlc.narg(id_00) AS id, sqlc.narg(meta_tag_00) AS meta_tag
   UNION ALL SELECT sqlc.narg(id_01) AS id, sqlc.narg(meta_tag_01) AS meta_tag
   UNION ALL SELECT sqlc.narg(id_02) AS id, sqlc.narg(meta_tag_02) AS meta_tag
@@ -11,19 +11,19 @@ WITH refs(id, meta_tag) AS (
   UNION ALL SELECT sqlc.narg(id_08) AS id, sqlc.narg(meta_tag_08) AS meta_tag
   UNION ALL SELECT sqlc.narg(id_09) AS id, sqlc.narg(meta_tag_09) AS meta_tag
 )
-SELECT DISTINCT br.blob_id
-FROM refs r
-JOIN blob_refs br
-  ON br.id = r.id
- AND br.meta_tag = r.meta_tag
-WHERE br.namespace = sqlc.arg(namespace)
-  AND br.subject = sqlc.arg(subject)
-  -- Both checks are intentionally redundant: caller promises refs are all-null or all-non-null pairs.
-  AND r.id IS NOT NULL
-  AND r.meta_tag IS NOT NULL;
+SELECT DISTINCT be.blob_id
+FROM entries e
+JOIN blob_entries be
+  ON be.id = e.id
+ AND be.meta_tag = e.meta_tag
+WHERE be.namespace = sqlc.arg(namespace)
+  AND be.subject = sqlc.arg(subject)
+  -- Both checks are intentionally redundant: caller promises entries are all-null or all-non-null pairs.
+  AND e.id IS NOT NULL
+  AND e.meta_tag IS NOT NULL;
 
--- name: GetBlobRefsByScopeAnd100Refs :many
-WITH refs(id, meta_tag) AS (
+-- name: GetBlobEntriesByScopeAnd100Entries :many
+WITH entries(id, meta_tag) AS (
   SELECT sqlc.narg(id_00) AS id, sqlc.narg(meta_tag_00) AS meta_tag
   UNION ALL SELECT sqlc.narg(id_01) AS id, sqlc.narg(meta_tag_01) AS meta_tag
   UNION ALL SELECT sqlc.narg(id_02) AS id, sqlc.narg(meta_tag_02) AS meta_tag
@@ -125,13 +125,13 @@ WITH refs(id, meta_tag) AS (
   UNION ALL SELECT sqlc.narg(id_98) AS id, sqlc.narg(meta_tag_98) AS meta_tag
   UNION ALL SELECT sqlc.narg(id_99) AS id, sqlc.narg(meta_tag_99) AS meta_tag
 )
-SELECT DISTINCT br.blob_id
-FROM refs r
-JOIN blob_refs br
-  ON br.id = r.id
- AND br.meta_tag = r.meta_tag
-WHERE br.namespace = sqlc.arg(namespace)
-  AND br.subject = sqlc.arg(subject)
-  -- Both checks are intentionally redundant: caller promises refs are all-null or all-non-null pairs.
-  AND r.id IS NOT NULL
-  AND r.meta_tag IS NOT NULL;
+SELECT DISTINCT be.blob_id
+FROM entries e
+JOIN blob_entries be
+  ON be.id = e.id
+ AND be.meta_tag = e.meta_tag
+WHERE be.namespace = sqlc.arg(namespace)
+  AND be.subject = sqlc.arg(subject)
+  -- Both checks are intentionally redundant: caller promises entries are all-null or all-non-null pairs.
+  AND e.id IS NOT NULL
+  AND e.meta_tag IS NOT NULL;

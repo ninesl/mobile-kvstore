@@ -6,17 +6,17 @@ import (
 	"github.com/ninesl/kvstore/sqlstore"
 )
 
-type sqliteRefPair struct {
+type sqliteEntryPair struct {
 	ID      *int64
 	MetaTag *string
 }
 
-func (ref ItemRef) toSqlitePair() sqliteRefPair {
-	id := int64(ref.ID)
+func (identity Identity) toSqliteEntry() sqliteEntryPair {
+	id := int64(identity.ID)
 
-	return sqliteRefPair{
+	return sqliteEntryPair{
 		ID:      &id,
-		MetaTag: &ref.MetaTag,
+		MetaTag: &identity.MetaTag,
 	}
 }
 
@@ -32,49 +32,49 @@ func appendDistinctBlobIDs(blobIDs []int, seen map[int64]struct{}, rows []int64)
 	return blobIDs
 }
 
-func refsTo10Params(scope BatchScope, refs []sqliteRefPair) (sqlstore.GetBlobRefsByScopeAnd10RefsParams, error) {
-	if len(refs) == 0 {
-		return sqlstore.GetBlobRefsByScopeAnd10RefsParams{}, fmt.Errorf("ref batch 10 requires at least one ref")
+func entriesTo10Params(scope Scope, entries []sqliteEntryPair) (sqlstore.GetBlobEntriesByScopeAnd10EntriesParams, error) {
+	if len(entries) == 0 {
+		return sqlstore.GetBlobEntriesByScopeAnd10EntriesParams{}, fmt.Errorf("entry batch 10 requires at least one entry")
 	}
-	if len(refs) > 10 {
-		return sqlstore.GetBlobRefsByScopeAnd10RefsParams{}, fmt.Errorf("ref batch 10 got %d refs", len(refs))
+	if len(entries) > 10 {
+		return sqlstore.GetBlobEntriesByScopeAnd10EntriesParams{}, fmt.Errorf("entry batch 10 got %d entries", len(entries))
 	}
 
-	params := sqlstore.GetBlobRefsByScopeAnd10RefsParams{
+	params := sqlstore.GetBlobEntriesByScopeAnd10EntriesParams{
 		Namespace: scope.Namespace,
 		Subject:   int64(scope.Subject),
 	}
-	for i, ref := range refs {
-		if err := setRefBatch10Slot(&params, i, ref); err != nil {
-			return sqlstore.GetBlobRefsByScopeAnd10RefsParams{}, err
+	for i, entry := range entries {
+		if err := setEntryBatch10Slot(&params, i, entry); err != nil {
+			return sqlstore.GetBlobEntriesByScopeAnd10EntriesParams{}, err
 		}
 	}
 	return params, nil
 }
 
-func refsTo100Params(scope BatchScope, refs []sqliteRefPair) (sqlstore.GetBlobRefsByScopeAnd100RefsParams, error) {
-	if len(refs) == 0 {
-		return sqlstore.GetBlobRefsByScopeAnd100RefsParams{}, fmt.Errorf("ref batch 100 requires at least one ref")
+func entriesTo100Params(scope Scope, entries []sqliteEntryPair) (sqlstore.GetBlobEntriesByScopeAnd100EntriesParams, error) {
+	if len(entries) == 0 {
+		return sqlstore.GetBlobEntriesByScopeAnd100EntriesParams{}, fmt.Errorf("entry batch 100 requires at least one entry")
 	}
-	if len(refs) > 100 {
-		return sqlstore.GetBlobRefsByScopeAnd100RefsParams{}, fmt.Errorf("ref batch 100 got %d refs", len(refs))
+	if len(entries) > 100 {
+		return sqlstore.GetBlobEntriesByScopeAnd100EntriesParams{}, fmt.Errorf("entry batch 100 got %d entries", len(entries))
 	}
 
-	params := sqlstore.GetBlobRefsByScopeAnd100RefsParams{
+	params := sqlstore.GetBlobEntriesByScopeAnd100EntriesParams{
 		Namespace: scope.Namespace,
 		Subject:   int64(scope.Subject),
 	}
-	for i, ref := range refs {
-		if err := setRefBatch100Slot(&params, i, ref); err != nil {
-			return sqlstore.GetBlobRefsByScopeAnd100RefsParams{}, err
+	for i, entry := range entries {
+		if err := setEntryBatch100Slot(&params, i, entry); err != nil {
+			return sqlstore.GetBlobEntriesByScopeAnd100EntriesParams{}, err
 		}
 	}
 	return params, nil
 }
 
-func setRefBatch10Slot(params *sqlstore.GetBlobRefsByScopeAnd10RefsParams, index int, ref sqliteRefPair) error {
-	id := ref.ID
-	metaTag := ref.MetaTag
+func setEntryBatch10Slot(params *sqlstore.GetBlobEntriesByScopeAnd10EntriesParams, index int, entry sqliteEntryPair) error {
+	id := entry.ID
+	metaTag := entry.MetaTag
 	switch index {
 	case 0:
 		params.ID00 = id
@@ -107,14 +107,14 @@ func setRefBatch10Slot(params *sqlstore.GetBlobRefsByScopeAnd10RefsParams, index
 		params.ID09 = id
 		params.MetaTag09 = metaTag
 	default:
-		return fmt.Errorf("ref batch 10 slot %d exceeds capacity", index)
+		return fmt.Errorf("entry batch 10 slot %d exceeds capacity", index)
 	}
 	return nil
 }
 
-func setRefBatch100Slot(params *sqlstore.GetBlobRefsByScopeAnd100RefsParams, index int, ref sqliteRefPair) error {
-	id := ref.ID
-	metaTag := ref.MetaTag
+func setEntryBatch100Slot(params *sqlstore.GetBlobEntriesByScopeAnd100EntriesParams, index int, entry sqliteEntryPair) error {
+	id := entry.ID
+	metaTag := entry.MetaTag
 	switch index {
 	case 0:
 		params.ID00 = id
@@ -417,7 +417,7 @@ func setRefBatch100Slot(params *sqlstore.GetBlobRefsByScopeAnd100RefsParams, ind
 		params.ID99 = id
 		params.MetaTag99 = metaTag
 	default:
-		return fmt.Errorf("ref batch 100 slot %d exceeds capacity", index)
+		return fmt.Errorf("entry batch 100 slot %d exceeds capacity", index)
 	}
 	return nil
 }

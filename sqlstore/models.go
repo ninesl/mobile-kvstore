@@ -11,7 +11,7 @@ type Blob struct {
 	UpdatedAt int64  `db:"updated_at"`
 }
 
-type BlobRef struct {
+type BlobEntry struct {
 	Namespace string `db:"namespace"`
 	Subject   int64  `db:"subject"`
 	ID        int64  `db:"id"`

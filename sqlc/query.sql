@@ -13,8 +13,15 @@ ON CONFLICT(blob_key) DO UPDATE SET
     updated_at = excluded.updated_at
 RETURNING blob_id;
 
--- name: InsertBlobRef :exec
-INSERT INTO blob_refs (
+-- name: UpdateBlobValue :exec
+UPDATE blobs
+SET blob_key = sqlc.arg(blob_key),
+    blob_value = sqlc.arg(blob_value),
+    updated_at = sqlc.arg(updated_at)
+WHERE blob_id = sqlc.arg(blob_id);
+
+-- name: InsertBlobEntry :exec
+INSERT INTO blob_entries (
     namespace,
     subject,
     id,
@@ -29,15 +36,15 @@ INSERT INTO blob_refs (
 );
 
 -- name: GetBlobValuesByScope :many
-SELECT DISTINCT b.blob_id, b.blob_value
-FROM blob_refs br
+SELECT DISTINCT b.blob_id, b.blob_key, b.blob_value
+FROM blob_entries br
 JOIN blobs b ON b.blob_id = br.blob_id
 WHERE br.namespace = sqlc.arg(namespace)
   AND br.subject = sqlc.arg(subject);
 
--- name: GetBlobValuesByRef :many
-SELECT DISTINCT b.blob_id, b.blob_value
-FROM blob_refs br
+-- name: GetBlobValuesByIdentity :many
+SELECT DISTINCT b.blob_id, b.blob_key, b.blob_value
+FROM blob_entries br
 JOIN blobs b ON b.blob_id = br.blob_id
 WHERE br.namespace = sqlc.arg(namespace)
   AND br.subject = sqlc.arg(subject)

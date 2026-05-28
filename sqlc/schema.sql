@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS blobs (
     UNIQUE (blob_key)
 );
 
-CREATE TABLE IF NOT EXISTS blob_refs (
+CREATE TABLE IF NOT EXISTS blob_entries (
     namespace TEXT NOT NULL,
     subject INTEGER NOT NULL,
     id INTEGER NOT NULL,
