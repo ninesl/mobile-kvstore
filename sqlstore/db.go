@@ -24,29 +24,26 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
-	if q.getBlobEntriesByScopeAnd100EntriesStmt, err = db.PrepareContext(ctx, getBlobEntriesByScopeAnd100Entries); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBlobEntriesByScopeAnd100Entries: %w", err)
+	if q.countBlobEntriesByFilterStmt, err = db.PrepareContext(ctx, countBlobEntriesByFilter); err != nil {
+		return nil, fmt.Errorf("error preparing query CountBlobEntriesByFilter: %w", err)
 	}
-	if q.getBlobEntriesByScopeAnd10EntriesStmt, err = db.PrepareContext(ctx, getBlobEntriesByScopeAnd10Entries); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBlobEntriesByScopeAnd10Entries: %w", err)
+	if q.deleteBlobByBlobKeyStmt, err = db.PrepareContext(ctx, deleteBlobByBlobKey); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBlobByBlobKey: %w", err)
+	}
+	if q.deleteBlobsByFilterStmt, err = db.PrepareContext(ctx, deleteBlobsByFilter); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteBlobsByFilter: %w", err)
 	}
 	if q.getBlobIDByBlobKeyStmt, err = db.PrepareContext(ctx, getBlobIDByBlobKey); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBlobIDByBlobKey: %w", err)
 	}
-	if q.getBlobValuesByIdentityStmt, err = db.PrepareContext(ctx, getBlobValuesByIdentity); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBlobValuesByIdentity: %w", err)
-	}
-	if q.getBlobValuesByScopeStmt, err = db.PrepareContext(ctx, getBlobValuesByScope); err != nil {
-		return nil, fmt.Errorf("error preparing query GetBlobValuesByScope: %w", err)
+	if q.getBlobValuesByFilterStmt, err = db.PrepareContext(ctx, getBlobValuesByFilter); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBlobValuesByFilter: %w", err)
 	}
 	if q.insertBlobEntriesByScopeAnd100EntriesStmt, err = db.PrepareContext(ctx, insertBlobEntriesByScopeAnd100Entries); err != nil {
 		return nil, fmt.Errorf("error preparing query InsertBlobEntriesByScopeAnd100Entries: %w", err)
 	}
 	if q.insertBlobEntriesByScopeAnd10EntriesStmt, err = db.PrepareContext(ctx, insertBlobEntriesByScopeAnd10Entries); err != nil {
 		return nil, fmt.Errorf("error preparing query InsertBlobEntriesByScopeAnd10Entries: %w", err)
-	}
-	if q.insertBlobEntryStmt, err = db.PrepareContext(ctx, insertBlobEntry); err != nil {
-		return nil, fmt.Errorf("error preparing query InsertBlobEntry: %w", err)
 	}
 	if q.updateBlobValueStmt, err = db.PrepareContext(ctx, updateBlobValue); err != nil {
 		return nil, fmt.Errorf("error preparing query UpdateBlobValue: %w", err)
@@ -59,14 +56,19 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
-	if q.getBlobEntriesByScopeAnd100EntriesStmt != nil {
-		if cerr := q.getBlobEntriesByScopeAnd100EntriesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBlobEntriesByScopeAnd100EntriesStmt: %w", cerr)
+	if q.countBlobEntriesByFilterStmt != nil {
+		if cerr := q.countBlobEntriesByFilterStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing countBlobEntriesByFilterStmt: %w", cerr)
 		}
 	}
-	if q.getBlobEntriesByScopeAnd10EntriesStmt != nil {
-		if cerr := q.getBlobEntriesByScopeAnd10EntriesStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBlobEntriesByScopeAnd10EntriesStmt: %w", cerr)
+	if q.deleteBlobByBlobKeyStmt != nil {
+		if cerr := q.deleteBlobByBlobKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBlobByBlobKeyStmt: %w", cerr)
+		}
+	}
+	if q.deleteBlobsByFilterStmt != nil {
+		if cerr := q.deleteBlobsByFilterStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteBlobsByFilterStmt: %w", cerr)
 		}
 	}
 	if q.getBlobIDByBlobKeyStmt != nil {
@@ -74,14 +76,9 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getBlobIDByBlobKeyStmt: %w", cerr)
 		}
 	}
-	if q.getBlobValuesByIdentityStmt != nil {
-		if cerr := q.getBlobValuesByIdentityStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBlobValuesByIdentityStmt: %w", cerr)
-		}
-	}
-	if q.getBlobValuesByScopeStmt != nil {
-		if cerr := q.getBlobValuesByScopeStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing getBlobValuesByScopeStmt: %w", cerr)
+	if q.getBlobValuesByFilterStmt != nil {
+		if cerr := q.getBlobValuesByFilterStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBlobValuesByFilterStmt: %w", cerr)
 		}
 	}
 	if q.insertBlobEntriesByScopeAnd100EntriesStmt != nil {
@@ -92,11 +89,6 @@ func (q *Queries) Close() error {
 	if q.insertBlobEntriesByScopeAnd10EntriesStmt != nil {
 		if cerr := q.insertBlobEntriesByScopeAnd10EntriesStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing insertBlobEntriesByScopeAnd10EntriesStmt: %w", cerr)
-		}
-	}
-	if q.insertBlobEntryStmt != nil {
-		if cerr := q.insertBlobEntryStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing insertBlobEntryStmt: %w", cerr)
 		}
 	}
 	if q.updateBlobValueStmt != nil {
@@ -148,30 +140,28 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                                        DBTX
 	tx                                        *sql.Tx
-	getBlobEntriesByScopeAnd100EntriesStmt    *sql.Stmt
-	getBlobEntriesByScopeAnd10EntriesStmt     *sql.Stmt
+	countBlobEntriesByFilterStmt              *sql.Stmt
+	deleteBlobByBlobKeyStmt                   *sql.Stmt
+	deleteBlobsByFilterStmt                   *sql.Stmt
 	getBlobIDByBlobKeyStmt                    *sql.Stmt
-	getBlobValuesByIdentityStmt               *sql.Stmt
-	getBlobValuesByScopeStmt                  *sql.Stmt
+	getBlobValuesByFilterStmt                 *sql.Stmt
 	insertBlobEntriesByScopeAnd100EntriesStmt *sql.Stmt
 	insertBlobEntriesByScopeAnd10EntriesStmt  *sql.Stmt
-	insertBlobEntryStmt                       *sql.Stmt
 	updateBlobValueStmt                       *sql.Stmt
 	upsertBlobStmt                            *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                                     tx,
-		tx:                                     tx,
-		getBlobEntriesByScopeAnd100EntriesStmt: q.getBlobEntriesByScopeAnd100EntriesStmt,
-		getBlobEntriesByScopeAnd10EntriesStmt:  q.getBlobEntriesByScopeAnd10EntriesStmt,
-		getBlobIDByBlobKeyStmt:                 q.getBlobIDByBlobKeyStmt,
-		getBlobValuesByIdentityStmt:            q.getBlobValuesByIdentityStmt,
-		getBlobValuesByScopeStmt:               q.getBlobValuesByScopeStmt,
+		db:                           tx,
+		tx:                           tx,
+		countBlobEntriesByFilterStmt: q.countBlobEntriesByFilterStmt,
+		deleteBlobByBlobKeyStmt:      q.deleteBlobByBlobKeyStmt,
+		deleteBlobsByFilterStmt:      q.deleteBlobsByFilterStmt,
+		getBlobIDByBlobKeyStmt:       q.getBlobIDByBlobKeyStmt,
+		getBlobValuesByFilterStmt:    q.getBlobValuesByFilterStmt,
 		insertBlobEntriesByScopeAnd100EntriesStmt: q.insertBlobEntriesByScopeAnd100EntriesStmt,
 		insertBlobEntriesByScopeAnd10EntriesStmt:  q.insertBlobEntriesByScopeAnd10EntriesStmt,
-		insertBlobEntryStmt:                       q.insertBlobEntryStmt,
 		updateBlobValueStmt:                       q.updateBlobValueStmt,
 		upsertBlobStmt:                            q.upsertBlobStmt,
 	}

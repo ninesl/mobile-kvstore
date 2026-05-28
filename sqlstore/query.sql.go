@@ -9,6 +9,76 @@ import (
 	"context"
 )
 
+const countBlobEntriesByFilter = `-- name: CountBlobEntriesByFilter :one
+SELECT COUNT(DISTINCT blob_id)
+FROM blob_entries
+WHERE (?1 IS NULL OR namespace = ?1)
+  AND (?2 IS NULL OR subject = ?2)
+  AND (?3 IS NULL OR id = ?3)
+  AND (?4 IS NULL OR meta_tag = ?4)
+`
+
+type CountBlobEntriesByFilterParams struct {
+	Namespace interface{} `db:"namespace"`
+	Subject   interface{} `db:"subject"`
+	ID        interface{} `db:"id"`
+	MetaTag   interface{} `db:"meta_tag"`
+}
+
+// sqlc.narg values are nullable filter inputs, not nullable blob_entries columns.
+// A nil filter field becomes `NULL IS NULL OR column = NULL`, which is TRUE,
+// so that field's predicate is ignored while non-nil fields still filter normally.
+func (q *Queries) CountBlobEntriesByFilter(ctx context.Context, arg CountBlobEntriesByFilterParams) (int64, error) {
+	row := q.queryRow(ctx, q.countBlobEntriesByFilterStmt, countBlobEntriesByFilter,
+		arg.Namespace,
+		arg.Subject,
+		arg.ID,
+		arg.MetaTag,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteBlobByBlobKey = `-- name: DeleteBlobByBlobKey :exec
+DELETE FROM blobs
+WHERE blob_key = ?1
+`
+
+func (q *Queries) DeleteBlobByBlobKey(ctx context.Context, blobKey string) error {
+	_, err := q.exec(ctx, q.deleteBlobByBlobKeyStmt, deleteBlobByBlobKey, blobKey)
+	return err
+}
+
+const deleteBlobsByFilter = `-- name: DeleteBlobsByFilter :exec
+DELETE FROM blobs
+WHERE blob_id IN (
+    SELECT DISTINCT blob_id
+    FROM blob_entries
+    WHERE (?1 IS NULL OR namespace = ?1)
+      AND (?2 IS NULL OR subject = ?2)
+      AND (?3 IS NULL OR id = ?3)
+      AND (?4 IS NULL OR meta_tag = ?4)
+)
+`
+
+type DeleteBlobsByFilterParams struct {
+	Namespace interface{} `db:"namespace"`
+	Subject   interface{} `db:"subject"`
+	ID        interface{} `db:"id"`
+	MetaTag   interface{} `db:"meta_tag"`
+}
+
+func (q *Queries) DeleteBlobsByFilter(ctx context.Context, arg DeleteBlobsByFilterParams) error {
+	_, err := q.exec(ctx, q.deleteBlobsByFilterStmt, deleteBlobsByFilter,
+		arg.Namespace,
+		arg.Subject,
+		arg.ID,
+		arg.MetaTag,
+	)
+	return err
+}
+
 const getBlobIDByBlobKey = `-- name: GetBlobIDByBlobKey :one
 SELECT b.blob_id
 FROM (SELECT ?1 AS blob_key) AS k
@@ -22,31 +92,31 @@ func (q *Queries) GetBlobIDByBlobKey(ctx context.Context, blobKey string) (*int6
 	return blob_id, err
 }
 
-const getBlobValuesByIdentity = `-- name: GetBlobValuesByIdentity :many
+const getBlobValuesByFilter = `-- name: GetBlobValuesByFilter :many
 SELECT DISTINCT b.blob_id, b.blob_key, b.blob_value
 FROM blob_entries br
 JOIN blobs b ON b.blob_id = br.blob_id
-WHERE br.namespace = ?1
-  AND br.subject = ?2
-  AND br.id = ?3
-  AND br.meta_tag = ?4
+WHERE (?1 IS NULL OR br.namespace = ?1)
+  AND (?2 IS NULL OR br.subject = ?2)
+  AND (?3 IS NULL OR br.id = ?3)
+  AND (?4 IS NULL OR br.meta_tag = ?4)
 `
 
-type GetBlobValuesByIdentityParams struct {
-	Namespace string `db:"namespace"`
-	Subject   int64  `db:"subject"`
-	ID        int64  `db:"id"`
-	MetaTag   string `db:"meta_tag"`
+type GetBlobValuesByFilterParams struct {
+	Namespace interface{} `db:"namespace"`
+	Subject   interface{} `db:"subject"`
+	ID        interface{} `db:"id"`
+	MetaTag   interface{} `db:"meta_tag"`
 }
 
-type GetBlobValuesByIdentityRow struct {
+type GetBlobValuesByFilterRow struct {
 	BlobID    int64  `db:"blob_id"`
 	BlobKey   string `db:"blob_key"`
 	BlobValue []byte `db:"blob_value"`
 }
 
-func (q *Queries) GetBlobValuesByIdentity(ctx context.Context, arg GetBlobValuesByIdentityParams) ([]GetBlobValuesByIdentityRow, error) {
-	rows, err := q.query(ctx, q.getBlobValuesByIdentityStmt, getBlobValuesByIdentity,
+func (q *Queries) GetBlobValuesByFilter(ctx context.Context, arg GetBlobValuesByFilterParams) ([]GetBlobValuesByFilterRow, error) {
+	rows, err := q.query(ctx, q.getBlobValuesByFilterStmt, getBlobValuesByFilter,
 		arg.Namespace,
 		arg.Subject,
 		arg.ID,
@@ -56,9 +126,9 @@ func (q *Queries) GetBlobValuesByIdentity(ctx context.Context, arg GetBlobValues
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetBlobValuesByIdentityRow{}
+	items := []GetBlobValuesByFilterRow{}
 	for rows.Next() {
-		var i GetBlobValuesByIdentityRow
+		var i GetBlobValuesByFilterRow
 		if err := rows.Scan(&i.BlobID, &i.BlobKey, &i.BlobValue); err != nil {
 			return nil, err
 		}
@@ -71,83 +141,6 @@ func (q *Queries) GetBlobValuesByIdentity(ctx context.Context, arg GetBlobValues
 		return nil, err
 	}
 	return items, nil
-}
-
-const getBlobValuesByScope = `-- name: GetBlobValuesByScope :many
-SELECT DISTINCT b.blob_id, b.blob_key, b.blob_value
-FROM blob_entries br
-JOIN blobs b ON b.blob_id = br.blob_id
-WHERE br.namespace = ?1
-  AND br.subject = ?2
-`
-
-type GetBlobValuesByScopeParams struct {
-	Namespace string `db:"namespace"`
-	Subject   int64  `db:"subject"`
-}
-
-type GetBlobValuesByScopeRow struct {
-	BlobID    int64  `db:"blob_id"`
-	BlobKey   string `db:"blob_key"`
-	BlobValue []byte `db:"blob_value"`
-}
-
-func (q *Queries) GetBlobValuesByScope(ctx context.Context, arg GetBlobValuesByScopeParams) ([]GetBlobValuesByScopeRow, error) {
-	rows, err := q.query(ctx, q.getBlobValuesByScopeStmt, getBlobValuesByScope, arg.Namespace, arg.Subject)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetBlobValuesByScopeRow{}
-	for rows.Next() {
-		var i GetBlobValuesByScopeRow
-		if err := rows.Scan(&i.BlobID, &i.BlobKey, &i.BlobValue); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const insertBlobEntry = `-- name: InsertBlobEntry :exec
-INSERT INTO blob_entries (
-    namespace,
-    subject,
-    id,
-    meta_tag,
-    blob_id
-) VALUES (
-    ?1,
-    ?2,
-    ?3,
-    ?4,
-    ?5
-)
-`
-
-type InsertBlobEntryParams struct {
-	Namespace string `db:"namespace"`
-	Subject   int64  `db:"subject"`
-	ID        int64  `db:"id"`
-	MetaTag   string `db:"meta_tag"`
-	BlobID    int64  `db:"blob_id"`
-}
-
-func (q *Queries) InsertBlobEntry(ctx context.Context, arg InsertBlobEntryParams) error {
-	_, err := q.exec(ctx, q.insertBlobEntryStmt, insertBlobEntry,
-		arg.Namespace,
-		arg.Subject,
-		arg.ID,
-		arg.MetaTag,
-		arg.BlobID,
-	)
-	return err
 }
 
 const updateBlobValue = `-- name: UpdateBlobValue :exec

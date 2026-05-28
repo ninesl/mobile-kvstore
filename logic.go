@@ -12,111 +12,114 @@ type storer struct {
 	queries *sqlstore.Queries
 }
 
-/*
-// TODO: this function will also have a routine or be in conjunction
-// with validating TTL or whatever else it deemed needed
-//
-// returns existing blob IDs for identities in this scope.
-func (items ItemArgs) findBlobIDs(s storer) ([]int, error) {
-	var errs []error
-	if items.Scope.Namespace == "" {
-		errs = append(errs, fmt.Errorf("namespace is required"))
-	}
-	if len(items.Identities) == 0 {
-		errs = append(errs, fmt.Errorf("no item identities to check for blob"))
-	}
-	if len(errs) > 0 {
-		return nil, errors.Join(errs...)
-	}
-
-	entries := make([]sqliteEntryPair, 0, len(items.Identities))
-	for i, identity := range items.Identities {
-		if identity.MetaTag == "" {
-			errs = append(errs, fmt.Errorf("identities[%d]: meta_tag is required", i))
-			continue
-		}
-		entries = append(entries, identity.toSqliteEntry())
-	}
-	if len(errs) > 0 {
-		return nil, errors.Join(errs...)
-	}
-
-	blobIDs := make([]int, 0)
-	seen := make(map[int64]struct{})
-
-	// Process 100-entry chunks first, then the modulo/% remainder through the 10-entry query.
-	// Fixed chunk sizes let sqlc keep prepared queries while nil pair slots handle short batches.
-	for len(entries) >= 100 {
-		params, err := entriesTo100Params(items.Scope, entries[:100])
-		if err != nil {
-			return nil, err
-		}
-		rows, err := s.queries.GetBlobEntriesByScopeAnd100Entries(context.Background(), params)
-		if err != nil {
-			return nil, err
-		}
-		blobIDs = appendDistinctBlobIDs(blobIDs, seen, rows)
-		entries = entries[100:]
-	}
-
-	for len(entries) > 0 {
-		n := min(10, len(entries))
-		params, err := entriesTo10Params(items.Scope, entries[:n])
-		if err != nil {
-			return nil, err
-		}
-		rows, err := s.queries.GetBlobEntriesByScopeAnd10Entries(context.Background(), params)
-		if err != nil {
-			return nil, err
-		}
-		blobIDs = appendDistinctBlobIDs(blobIDs, seen, rows)
-		entries = entries[n:]
-	}
-	return blobIDs, nil
-}
-*/
-
-func (s storer) Get(scope Scope, decode DecoderFunc) ([]any, error) {
-	rows, err := s.queries.GetBlobValuesByScope(
-		context.Background(),
-		sqlstore.GetBlobValuesByScopeParams{
-			Namespace: scope.Namespace,
-			Subject:   int64(scope.Subject),
-		})
+func (s storer) GetByFilter(filter EntryFilter, decode DecoderFunc) ([]any, error) {
+	rows, err := s.queries.GetBlobValuesByFilter(context.Background(), getBlobValuesParams(filter))
 	if err != nil {
 		return nil, err
 	}
-	return decodeResults(blobRowsFromScope(rows), decode)
+	return decodeResults(blobRowsFromFilter(rows), decode)
 }
 
-func (s storer) GetByFilter(f Filter, decode DecoderFunc) ([]any, error) {
-	rows, err := s.queries.GetBlobValuesByIdentity(
-		context.Background(),
-		sqlstore.GetBlobValuesByIdentityParams{
-			Namespace: f.Scope.Namespace,
-			Subject:   int64(f.Scope.Subject),
-			ID:        int64(f.Identity.ID),
-			MetaTag:   f.Identity.MetaTag,
-		})
+// returns (-1, err) if error while getting count
+func (s storer) Count(filter EntryFilter) (int, error) {
+	count, err := s.queries.CountBlobEntriesByFilter(context.Background(), countBlobEntriesParams(filter))
 	if err != nil {
-		return nil, err
+		return -1, err
 	}
-	return decodeResults(blobRowsFromIdentity(rows), decode)
+	return int(count), nil
 }
 
-func (s storer) Count(filter CountFilter) int { return 0 }
+func (s storer) ClearByScope(scope Scope) error {
+	return s.deleteBlobsByFilter(EntryFilter{
+		Namespace: &scope.Namespace,
+		Subject:   &scope.Subject,
+	})
+}
 
-func (s storer) ClearByScope(scope Scope) error { return nil }
+func (s storer) ClearByIdentity(identity Identity) error {
+	return s.deleteBlobsByFilter(EntryFilter{
+		ID:      &identity.ID,
+		MetaTag: &identity.MetaTag,
+	})
+}
 
-func (s storer) ClearBySubject(subject string) error { return nil }
+func (s storer) ClearByFilter(filter EntryFilter) error {
+	if countFilterEmpty(filter) {
+		return errors.New("ClearByFilter requires at least one filter field")
+	}
+	return s.deleteBlobsByFilter(filter)
+}
 
-func (s storer) ClearByIdentity(identity Identity) error { return nil }
+func (s storer) ClearEverything() error {
+	return s.deleteBlobsByFilter(EntryFilter{})
+}
 
-func (s storer) ClearByScopeIdentity(scope Scope, identity Identity) error { return nil }
+func (s storer) ClearByBlobKey(key string) error {
+	return s.queries.DeleteBlobByBlobKey(context.Background(), key)
+}
 
-func (s storer) ClearByMetaTag(tag string) error { return nil }
+// if filter is empty, deletes all blobs
+func (s storer) deleteBlobsByFilter(filter EntryFilter) error {
+	return s.queries.DeleteBlobsByFilter(context.Background(), deleteBlobsParams(filter))
+}
 
-func (s storer) ClearByBlobKey(key string) error { return nil }
+func countBlobEntriesParams(filter EntryFilter) sqlstore.CountBlobEntriesByFilterParams {
+	params := sqlstore.CountBlobEntriesByFilterParams{}
+	if filter.Namespace != nil {
+		params.Namespace = *filter.Namespace
+	}
+	if filter.Subject != nil {
+		params.Subject = int64(*filter.Subject)
+	}
+	if filter.ID != nil {
+		params.ID = int64(*filter.ID)
+	}
+	if filter.MetaTag != nil {
+		params.MetaTag = *filter.MetaTag
+	}
+	return params
+}
+
+func getBlobValuesParams(filter EntryFilter) sqlstore.GetBlobValuesByFilterParams {
+	params := sqlstore.GetBlobValuesByFilterParams{}
+	if filter.Namespace != nil {
+		params.Namespace = *filter.Namespace
+	}
+	if filter.Subject != nil {
+		params.Subject = int64(*filter.Subject)
+	}
+	if filter.ID != nil {
+		params.ID = int64(*filter.ID)
+	}
+	if filter.MetaTag != nil {
+		params.MetaTag = *filter.MetaTag
+	}
+	return params
+}
+
+func deleteBlobsParams(filter EntryFilter) sqlstore.DeleteBlobsByFilterParams {
+	params := sqlstore.DeleteBlobsByFilterParams{}
+	if filter.Namespace != nil {
+		params.Namespace = *filter.Namespace
+	}
+	if filter.Subject != nil {
+		params.Subject = int64(*filter.Subject)
+	}
+	if filter.ID != nil {
+		params.ID = int64(*filter.ID)
+	}
+	if filter.MetaTag != nil {
+		params.MetaTag = *filter.MetaTag
+	}
+	return params
+}
+
+func countFilterEmpty(filter EntryFilter) bool {
+	return filter.Namespace == nil &&
+		filter.Subject == nil &&
+		filter.ID == nil &&
+		filter.MetaTag == nil
+}
 
 type blobRow struct {
 	BlobID  int64
@@ -124,19 +127,7 @@ type blobRow struct {
 	Data    []byte
 }
 
-func blobRowsFromScope(rows []sqlstore.GetBlobValuesByScopeRow) []blobRow {
-	results := make([]blobRow, 0, len(rows))
-	for _, row := range rows {
-		results = append(results, blobRow{
-			BlobID:  row.BlobID,
-			BlobKey: row.BlobKey,
-			Data:    row.BlobValue,
-		})
-	}
-	return results
-}
-
-func blobRowsFromIdentity(rows []sqlstore.GetBlobValuesByIdentityRow) []blobRow {
+func blobRowsFromFilter(rows []sqlstore.GetBlobValuesByFilterRow) []blobRow {
 	results := make([]blobRow, 0, len(rows))
 	for _, row := range rows {
 		results = append(results, blobRow{
@@ -201,19 +192,6 @@ func (s storer) overwriteBlob(blobID int, data any, encode EncoderFunc, blobKey 
 			BlobID:    int64(blobID),
 		})
 }
-
-/*
-func (s storer) storeIdentity(scope Scope, identity Identity, blobID int) error {
-	return s.queries.InsertBlobEntry(context.Background(),
-		sqlstore.InsertBlobEntryParams{
-			Namespace: scope.Namespace,
-			Subject:   int64(scope.Subject),
-			ID:        int64(identity.ID),
-			MetaTag:   identity.MetaTag,
-			BlobID:    int64(blobID),
-		})
-}
-*/
 
 func (s storer) storeIdentities(scope Scope, identities []Identity, blobID int) error {
 	entries := make([]sqliteEntryPair, 0, len(identities))

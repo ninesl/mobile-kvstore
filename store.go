@@ -2,9 +2,24 @@ package kvstore
 
 import (
 	"database/sql"
+	"embed"
 
 	"github.com/ninesl/kvstore/sqlstore"
 )
+
+//go:embed sqlc/schema.sql
+var schemaFS embed.FS
+
+// InitDB initializes the kvstore schema on conn.
+func InitDB(conn *sql.DB) error {
+	schema, err := schemaFS.ReadFile("sqlc/schema.sql")
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Exec(string(schema))
+	return err
+}
 
 // ItemArgs stores one blob payload and one or more Identities to that blob.
 // Store only calls Encode when the Identities do not already point to one shared blob.
@@ -47,20 +62,19 @@ type StoreItem interface {
 // ClearX will also delete associated data internally
 type Store interface {
 	Store(StoreItem) error
-	Get(scope Scope, decode DecoderFunc) ([]any, error)
-	GetByFilter(Filter, DecoderFunc) ([]any, error)
+
+	//Get(scope Scope, decode DecoderFunc) ([]any, error)
+	GetByFilter(EntryFilter, DecoderFunc) ([]any, error)
 
 	// returns all unique data of filter
 	// skips null fields for filter,
 	//
 	// ex: to count all instance of an ID in a namespace
-	//  store.Count(CountFilter{
+	//  store.Count(EntryFilter{
 	// 	Namespace: &someNamespace,
 	// 	ID: &someID,
 	//  })
-	// by using pointers we avoid
-	// CountByX CountByY functions
-	Count(filter CountFilter) int
+	Count(filter EntryFilter) (int, error)
 
 	// ALL CLEAR FUNCTIONS CASCADE AND DELETE ALL ENTRIES THAT IT FITS
 	// a Clear() will find the blob_id, delete the blob_ids from the blob_entry table
@@ -69,19 +83,16 @@ type Store interface {
 	// removes ALL data that have this scope
 	ClearByScope(scope Scope) error
 
-	// remove ALL data that share this subject
-	ClearBySubject(subject string) error
-
 	// remove ALL data that share this Identity
 	ClearByIdentity(identity Identity) error
 
-	// remove ALL data that have to do with this combined scope and Identity
-	ClearByScopeIdentity(scope Scope, identity Identity) error
+	// remove ALL data matching a non-empty EntryFilter
+	ClearByFilter(filter EntryFilter) error
 
-	// remove ALL data that has associated metatag
-	ClearByMetaTag(tag string) error
+	// remove ALL data
+	ClearEverything() error
 
-	// will use the serialized key and associated blob_id
+	// delete the single Data source from the blobkey/serialized key
 	// removes all Scopes/Identities referencing this data
 	ClearByBlobKey(key string) error
 }
@@ -91,18 +102,6 @@ func New(conn *sql.DB) Store {
 	return storer{
 		queries: sqlstore.New(conn),
 	}
-}
-
-type PathParams struct {
-	Path     string
-	Filename string
-}
-
-// Helper method that creates or uses a file at the given path
-// if path is "" will create .db file in cur directory
-func NewWithParams(params PathParams) (Store, error) {
-	return nil, nil
-	// create new sqlstore with given path or write new file
 }
 
 // Scope identifies the type and scan scope for stored blobs.
@@ -128,13 +127,8 @@ type DecoderFunc func([]byte) (any, error)
 // EncoderFunc should be given the most current data
 type EncoderFunc func(any) ([]byte, error)
 
-type Filter struct {
-	Scope    Scope
-	Identity Identity
-}
-
 // null fields are not considered for filtering
-type CountFilter struct {
+type EntryFilter struct {
 	Namespace *string
 	Subject   *int
 	ID        *int

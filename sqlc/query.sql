@@ -20,38 +20,42 @@ SET blob_key = sqlc.arg(blob_key),
     updated_at = sqlc.arg(updated_at)
 WHERE blob_id = sqlc.arg(blob_id);
 
--- name: InsertBlobEntry :exec
-INSERT INTO blob_entries (
-    namespace,
-    subject,
-    id,
-    meta_tag,
-    blob_id
-) VALUES (
-    sqlc.arg(namespace),
-    sqlc.arg(subject),
-    sqlc.arg(id),
-    sqlc.arg(meta_tag),
-    sqlc.arg(blob_id)
-);
-
--- name: GetBlobValuesByScope :many
+-- name: GetBlobValuesByFilter :many
 SELECT DISTINCT b.blob_id, b.blob_key, b.blob_value
 FROM blob_entries br
 JOIN blobs b ON b.blob_id = br.blob_id
-WHERE br.namespace = sqlc.arg(namespace)
-  AND br.subject = sqlc.arg(subject);
-
--- name: GetBlobValuesByIdentity :many
-SELECT DISTINCT b.blob_id, b.blob_key, b.blob_value
-FROM blob_entries br
-JOIN blobs b ON b.blob_id = br.blob_id
-WHERE br.namespace = sqlc.arg(namespace)
-  AND br.subject = sqlc.arg(subject)
-  AND br.id = sqlc.arg(id)
-  AND br.meta_tag = sqlc.arg(meta_tag);
+WHERE (sqlc.narg(namespace) IS NULL OR br.namespace = sqlc.narg(namespace))
+  AND (sqlc.narg(subject) IS NULL OR br.subject = sqlc.narg(subject))
+  AND (sqlc.narg(id) IS NULL OR br.id = sqlc.narg(id))
+  AND (sqlc.narg(meta_tag) IS NULL OR br.meta_tag = sqlc.narg(meta_tag));
 
 -- name: GetBlobIDByBlobKey :one
 SELECT b.blob_id
 FROM (SELECT sqlc.arg(blob_key) AS blob_key) AS k
 LEFT JOIN blobs b ON b.blob_key = k.blob_key;
+
+-- name: CountBlobEntriesByFilter :one
+-- sqlc.narg values are nullable filter inputs, not nullable blob_entries columns.
+-- A nil filter field becomes `NULL IS NULL OR column = NULL`, which is TRUE,
+-- so that field's predicate is ignored while non-nil fields still filter normally.
+SELECT COUNT(DISTINCT blob_id)
+FROM blob_entries
+WHERE (sqlc.narg(namespace) IS NULL OR namespace = sqlc.narg(namespace))
+  AND (sqlc.narg(subject) IS NULL OR subject = sqlc.narg(subject))
+  AND (sqlc.narg(id) IS NULL OR id = sqlc.narg(id))
+  AND (sqlc.narg(meta_tag) IS NULL OR meta_tag = sqlc.narg(meta_tag));
+
+-- name: DeleteBlobsByFilter :exec
+DELETE FROM blobs
+WHERE blob_id IN (
+    SELECT DISTINCT blob_id
+    FROM blob_entries
+    WHERE (sqlc.narg(namespace) IS NULL OR namespace = sqlc.narg(namespace))
+      AND (sqlc.narg(subject) IS NULL OR subject = sqlc.narg(subject))
+      AND (sqlc.narg(id) IS NULL OR id = sqlc.narg(id))
+      AND (sqlc.narg(meta_tag) IS NULL OR meta_tag = sqlc.narg(meta_tag))
+);
+
+-- name: DeleteBlobByBlobKey :exec
+DELETE FROM blobs
+WHERE blob_key = sqlc.arg(blob_key);
