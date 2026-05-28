@@ -30,11 +30,20 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getBlobEntriesByScopeAnd10EntriesStmt, err = db.PrepareContext(ctx, getBlobEntriesByScopeAnd10Entries); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBlobEntriesByScopeAnd10Entries: %w", err)
 	}
+	if q.getBlobIDByBlobKeyStmt, err = db.PrepareContext(ctx, getBlobIDByBlobKey); err != nil {
+		return nil, fmt.Errorf("error preparing query GetBlobIDByBlobKey: %w", err)
+	}
 	if q.getBlobValuesByIdentityStmt, err = db.PrepareContext(ctx, getBlobValuesByIdentity); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBlobValuesByIdentity: %w", err)
 	}
 	if q.getBlobValuesByScopeStmt, err = db.PrepareContext(ctx, getBlobValuesByScope); err != nil {
 		return nil, fmt.Errorf("error preparing query GetBlobValuesByScope: %w", err)
+	}
+	if q.insertBlobEntriesByScopeAnd100EntriesStmt, err = db.PrepareContext(ctx, insertBlobEntriesByScopeAnd100Entries); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertBlobEntriesByScopeAnd100Entries: %w", err)
+	}
+	if q.insertBlobEntriesByScopeAnd10EntriesStmt, err = db.PrepareContext(ctx, insertBlobEntriesByScopeAnd10Entries); err != nil {
+		return nil, fmt.Errorf("error preparing query InsertBlobEntriesByScopeAnd10Entries: %w", err)
 	}
 	if q.insertBlobEntryStmt, err = db.PrepareContext(ctx, insertBlobEntry); err != nil {
 		return nil, fmt.Errorf("error preparing query InsertBlobEntry: %w", err)
@@ -60,6 +69,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getBlobEntriesByScopeAnd10EntriesStmt: %w", cerr)
 		}
 	}
+	if q.getBlobIDByBlobKeyStmt != nil {
+		if cerr := q.getBlobIDByBlobKeyStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getBlobIDByBlobKeyStmt: %w", cerr)
+		}
+	}
 	if q.getBlobValuesByIdentityStmt != nil {
 		if cerr := q.getBlobValuesByIdentityStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getBlobValuesByIdentityStmt: %w", cerr)
@@ -68,6 +82,16 @@ func (q *Queries) Close() error {
 	if q.getBlobValuesByScopeStmt != nil {
 		if cerr := q.getBlobValuesByScopeStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getBlobValuesByScopeStmt: %w", cerr)
+		}
+	}
+	if q.insertBlobEntriesByScopeAnd100EntriesStmt != nil {
+		if cerr := q.insertBlobEntriesByScopeAnd100EntriesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertBlobEntriesByScopeAnd100EntriesStmt: %w", cerr)
+		}
+	}
+	if q.insertBlobEntriesByScopeAnd10EntriesStmt != nil {
+		if cerr := q.insertBlobEntriesByScopeAnd10EntriesStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing insertBlobEntriesByScopeAnd10EntriesStmt: %w", cerr)
 		}
 	}
 	if q.insertBlobEntryStmt != nil {
@@ -122,15 +146,18 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                                     DBTX
-	tx                                     *sql.Tx
-	getBlobEntriesByScopeAnd100EntriesStmt *sql.Stmt
-	getBlobEntriesByScopeAnd10EntriesStmt  *sql.Stmt
-	getBlobValuesByIdentityStmt            *sql.Stmt
-	getBlobValuesByScopeStmt               *sql.Stmt
-	insertBlobEntryStmt                    *sql.Stmt
-	updateBlobValueStmt                    *sql.Stmt
-	upsertBlobStmt                         *sql.Stmt
+	db                                        DBTX
+	tx                                        *sql.Tx
+	getBlobEntriesByScopeAnd100EntriesStmt    *sql.Stmt
+	getBlobEntriesByScopeAnd10EntriesStmt     *sql.Stmt
+	getBlobIDByBlobKeyStmt                    *sql.Stmt
+	getBlobValuesByIdentityStmt               *sql.Stmt
+	getBlobValuesByScopeStmt                  *sql.Stmt
+	insertBlobEntriesByScopeAnd100EntriesStmt *sql.Stmt
+	insertBlobEntriesByScopeAnd10EntriesStmt  *sql.Stmt
+	insertBlobEntryStmt                       *sql.Stmt
+	updateBlobValueStmt                       *sql.Stmt
+	upsertBlobStmt                            *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -139,10 +166,13 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		tx:                                     tx,
 		getBlobEntriesByScopeAnd100EntriesStmt: q.getBlobEntriesByScopeAnd100EntriesStmt,
 		getBlobEntriesByScopeAnd10EntriesStmt:  q.getBlobEntriesByScopeAnd10EntriesStmt,
+		getBlobIDByBlobKeyStmt:                 q.getBlobIDByBlobKeyStmt,
 		getBlobValuesByIdentityStmt:            q.getBlobValuesByIdentityStmt,
 		getBlobValuesByScopeStmt:               q.getBlobValuesByScopeStmt,
-		insertBlobEntryStmt:                    q.insertBlobEntryStmt,
-		updateBlobValueStmt:                    q.updateBlobValueStmt,
-		upsertBlobStmt:                         q.upsertBlobStmt,
+		insertBlobEntriesByScopeAnd100EntriesStmt: q.insertBlobEntriesByScopeAnd100EntriesStmt,
+		insertBlobEntriesByScopeAnd10EntriesStmt:  q.insertBlobEntriesByScopeAnd10EntriesStmt,
+		insertBlobEntryStmt:                       q.insertBlobEntryStmt,
+		updateBlobValueStmt:                       q.updateBlobValueStmt,
+		upsertBlobStmt:                            q.upsertBlobStmt,
 	}
 }

@@ -8,6 +8,7 @@ import (
 
 // ItemArgs stores one blob payload and one or more Identities to that blob.
 // Store only calls Encode when the Identities do not already point to one shared blob.
+// FIXME: currently overwrites the blob if it exists, no TTL logic
 type ItemArgs struct {
 
 	// Scope defines the type/kind of data

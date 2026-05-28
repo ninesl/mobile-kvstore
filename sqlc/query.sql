@@ -50,3 +50,8 @@ WHERE br.namespace = sqlc.arg(namespace)
   AND br.subject = sqlc.arg(subject)
   AND br.id = sqlc.arg(id)
   AND br.meta_tag = sqlc.arg(meta_tag);
+
+-- name: GetBlobIDByBlobKey :one
+SELECT b.blob_id
+FROM (SELECT sqlc.arg(blob_key) AS blob_key) AS k
+LEFT JOIN blobs b ON b.blob_key = k.blob_key;

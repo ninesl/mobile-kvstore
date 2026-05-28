@@ -9,6 +9,19 @@ import (
 	"context"
 )
 
+const getBlobIDByBlobKey = `-- name: GetBlobIDByBlobKey :one
+SELECT b.blob_id
+FROM (SELECT ?1 AS blob_key) AS k
+LEFT JOIN blobs b ON b.blob_key = k.blob_key
+`
+
+func (q *Queries) GetBlobIDByBlobKey(ctx context.Context, blobKey string) (*int64, error) {
+	row := q.queryRow(ctx, q.getBlobIDByBlobKeyStmt, getBlobIDByBlobKey, blobKey)
+	var blob_id *int64
+	err := row.Scan(&blob_id)
+	return blob_id, err
+}
+
 const getBlobValuesByIdentity = `-- name: GetBlobValuesByIdentity :many
 SELECT DISTINCT b.blob_id, b.blob_key, b.blob_value
 FROM blob_entries br

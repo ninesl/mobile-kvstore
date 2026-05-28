@@ -3,7 +3,6 @@ package kvstore
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/ninesl/kvstore/sqlstore"
@@ -13,11 +12,12 @@ type storer struct {
 	queries *sqlstore.Queries
 }
 
+/*
 // TODO: this function will also have a routine or be in conjunction
 // with validating TTL or whatever else it deemed needed
 //
 // returns existing blob IDs for identities in this scope.
-func (items ItemArgs) hasBlob(s storer) ([]int, error) {
+func (items ItemArgs) findBlobIDs(s storer) ([]int, error) {
 	var errs []error
 	if items.Scope.Namespace == "" {
 		errs = append(errs, fmt.Errorf("namespace is required"))
@@ -74,6 +74,7 @@ func (items ItemArgs) hasBlob(s storer) ([]int, error) {
 	}
 	return blobIDs, nil
 }
+*/
 
 func (s storer) Get(scope Scope, decode DecoderFunc) ([]any, error) {
 	rows, err := s.queries.GetBlobValuesByScope(
@@ -201,6 +202,7 @@ func (s storer) overwriteBlob(blobID int, data any, encode EncoderFunc, blobKey 
 		})
 }
 
+/*
 func (s storer) storeIdentity(scope Scope, identity Identity, blobID int) error {
 	return s.queries.InsertBlobEntry(context.Background(),
 		sqlstore.InsertBlobEntryParams{
@@ -211,57 +213,83 @@ func (s storer) storeIdentity(scope Scope, identity Identity, blobID int) error 
 			BlobID:    int64(blobID),
 		})
 }
+*/
 
-// Store is smart because of checking if the item's
-// shared blob exists or not and will not waste time Encode() ing
-// your underlying type you are storying must implement StoreItem
-// each storeItem has ItemArgs that tell the Storer how to store and define how it fits in the .db file
-func (s storer) Store(storeItem StoreItem) error {
-	var (
-		items   = storeItem.ItemArgs()
-		blobIDs []int
-		err     error
-	)
+func (s storer) storeIdentities(scope Scope, identities []Identity, blobID int) error {
+	entries := make([]sqliteEntryPair, 0, len(identities))
+	for _, identity := range identities {
+		entries = append(entries, identity.toSqliteEntry())
+	}
 
-	// check if storer has the serialized key
-
-	// assign/find blob_id
-	if blobIDs, err = items.hasBlob(s); err != nil {
-		return err
-	} else if len(blobIDs) == 0 {
-		var blobID int
-		blobID, err = s.storeBlob(items.Data, items.Encode, items.BlobKey)
+	for len(entries) >= 100 {
+		params, err := entriesToInsert100Params(scope, entries[:100], blobID)
 		if err != nil {
 			return err
 		}
-		blobIDs = append(blobIDs, blobID)
-	} else {
+		if err := s.queries.InsertBlobEntriesByScopeAnd100Entries(context.Background(), params); err != nil {
+			return err
+		}
+		entries = entries[100:]
+	}
+
+	for len(entries) > 0 {
+		n := min(10, len(entries))
+		params, err := entriesToInsert10Params(scope, entries[:n], blobID)
+		if err != nil {
+			return err
+		}
+		if err := s.queries.InsertBlobEntriesByScopeAnd10Entries(context.Background(), params); err != nil {
+			return err
+		}
+		entries = entries[n:]
+	}
+	return nil
+}
+
+// Store is smart because of checking if the item's
+// shared blob exists or not and will not waste time Encode() ing
+// FIXME: currently overwrites the blob if it exists, no TTL logic
+//
+// your underlying type you are storing must implement StoreItem
+// each storeItem has ItemArgs that tell the Storer how the blob fits in the .db file
+func (s storer) Store(storeItem StoreItem) error {
+	var (
+		items  = storeItem.ItemArgs()
+		blobID int
+		err    error
+	)
+
+	// check if storer has the serialized key/blob key
+	if items.BlobKey == "" {
+		return errors.New("StoreItem must have a blob key")
+	}
+	if len(items.Identities) == 0 {
+		return errors.New("StoreItem must have identities")
+	}
+
+	blobID64, err := s.queries.GetBlobIDByBlobKey(context.Background(), items.BlobKey)
+	if err != nil {
+		return err
+	}
+	if blobID64 != nil {
+		blobID = int(*blobID64)
 		// TODO: TTL logic to verify blob is new?
 		// should be based on scope and identity?
-		for _, blobID := range blobIDs {
-			if err := s.overwriteBlob(
-				blobID,
-				items.Data,
-				items.Encode,
-				items.BlobKey,
-			); err != nil {
-				return err
-			}
+		if err := s.overwriteBlob(
+			blobID,
+			items.Data,
+			items.Encode,
+			items.BlobKey,
+		); err != nil {
+			return err
+		}
+	} else {
+		blobID, err = s.storeBlob(
+			items.Data, items.Encode, items.BlobKey)
+		if err != nil {
+			return err
 		}
 	}
 
-	var errs []error
-	for _, blobID := range blobIDs {
-		for _, identity := range items.Identities {
-			if err := s.storeIdentity(
-				items.Scope,
-				identity,
-				blobID,
-			); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
-
-	return errors.Join(errs...)
+	return s.storeIdentities(items.Scope, items.Identities, blobID)
 }

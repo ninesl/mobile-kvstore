@@ -650,3 +650,621 @@ func (q *Queries) GetBlobEntriesByScopeAnd10Entries(ctx context.Context, arg Get
 	}
 	return items, nil
 }
+
+const insertBlobEntriesByScopeAnd100Entries = `-- name: InsertBlobEntriesByScopeAnd100Entries :exec
+INSERT OR IGNORE INTO blob_entries (
+  namespace,
+  subject,
+  id,
+  meta_tag,
+  blob_id
+)
+SELECT
+  ?1,
+  ?2,
+  e.id,
+  e.meta_tag,
+  ?3
+FROM (
+  SELECT ?4 AS id, ?5 AS meta_tag
+  UNION ALL SELECT ?6 AS id, ?7 AS meta_tag
+  UNION ALL SELECT ?8 AS id, ?9 AS meta_tag
+  UNION ALL SELECT ?10 AS id, ?11 AS meta_tag
+  UNION ALL SELECT ?12 AS id, ?13 AS meta_tag
+  UNION ALL SELECT ?14 AS id, ?15 AS meta_tag
+  UNION ALL SELECT ?16 AS id, ?17 AS meta_tag
+  UNION ALL SELECT ?18 AS id, ?19 AS meta_tag
+  UNION ALL SELECT ?20 AS id, ?21 AS meta_tag
+  UNION ALL SELECT ?22 AS id, ?23 AS meta_tag
+  UNION ALL SELECT ?24 AS id, ?25 AS meta_tag
+  UNION ALL SELECT ?26 AS id, ?27 AS meta_tag
+  UNION ALL SELECT ?28 AS id, ?29 AS meta_tag
+  UNION ALL SELECT ?30 AS id, ?31 AS meta_tag
+  UNION ALL SELECT ?32 AS id, ?33 AS meta_tag
+  UNION ALL SELECT ?34 AS id, ?35 AS meta_tag
+  UNION ALL SELECT ?36 AS id, ?37 AS meta_tag
+  UNION ALL SELECT ?38 AS id, ?39 AS meta_tag
+  UNION ALL SELECT ?40 AS id, ?41 AS meta_tag
+  UNION ALL SELECT ?42 AS id, ?43 AS meta_tag
+  UNION ALL SELECT ?44 AS id, ?45 AS meta_tag
+  UNION ALL SELECT ?46 AS id, ?47 AS meta_tag
+  UNION ALL SELECT ?48 AS id, ?49 AS meta_tag
+  UNION ALL SELECT ?50 AS id, ?51 AS meta_tag
+  UNION ALL SELECT ?52 AS id, ?53 AS meta_tag
+  UNION ALL SELECT ?54 AS id, ?55 AS meta_tag
+  UNION ALL SELECT ?56 AS id, ?57 AS meta_tag
+  UNION ALL SELECT ?58 AS id, ?59 AS meta_tag
+  UNION ALL SELECT ?60 AS id, ?61 AS meta_tag
+  UNION ALL SELECT ?62 AS id, ?63 AS meta_tag
+  UNION ALL SELECT ?64 AS id, ?65 AS meta_tag
+  UNION ALL SELECT ?66 AS id, ?67 AS meta_tag
+  UNION ALL SELECT ?68 AS id, ?69 AS meta_tag
+  UNION ALL SELECT ?70 AS id, ?71 AS meta_tag
+  UNION ALL SELECT ?72 AS id, ?73 AS meta_tag
+  UNION ALL SELECT ?74 AS id, ?75 AS meta_tag
+  UNION ALL SELECT ?76 AS id, ?77 AS meta_tag
+  UNION ALL SELECT ?78 AS id, ?79 AS meta_tag
+  UNION ALL SELECT ?80 AS id, ?81 AS meta_tag
+  UNION ALL SELECT ?82 AS id, ?83 AS meta_tag
+  UNION ALL SELECT ?84 AS id, ?85 AS meta_tag
+  UNION ALL SELECT ?86 AS id, ?87 AS meta_tag
+  UNION ALL SELECT ?88 AS id, ?89 AS meta_tag
+  UNION ALL SELECT ?90 AS id, ?91 AS meta_tag
+  UNION ALL SELECT ?92 AS id, ?93 AS meta_tag
+  UNION ALL SELECT ?94 AS id, ?95 AS meta_tag
+  UNION ALL SELECT ?96 AS id, ?97 AS meta_tag
+  UNION ALL SELECT ?98 AS id, ?99 AS meta_tag
+  UNION ALL SELECT ?100 AS id, ?101 AS meta_tag
+  UNION ALL SELECT ?102 AS id, ?103 AS meta_tag
+  UNION ALL SELECT ?104 AS id, ?105 AS meta_tag
+  UNION ALL SELECT ?106 AS id, ?107 AS meta_tag
+  UNION ALL SELECT ?108 AS id, ?109 AS meta_tag
+  UNION ALL SELECT ?110 AS id, ?111 AS meta_tag
+  UNION ALL SELECT ?112 AS id, ?113 AS meta_tag
+  UNION ALL SELECT ?114 AS id, ?115 AS meta_tag
+  UNION ALL SELECT ?116 AS id, ?117 AS meta_tag
+  UNION ALL SELECT ?118 AS id, ?119 AS meta_tag
+  UNION ALL SELECT ?120 AS id, ?121 AS meta_tag
+  UNION ALL SELECT ?122 AS id, ?123 AS meta_tag
+  UNION ALL SELECT ?124 AS id, ?125 AS meta_tag
+  UNION ALL SELECT ?126 AS id, ?127 AS meta_tag
+  UNION ALL SELECT ?128 AS id, ?129 AS meta_tag
+  UNION ALL SELECT ?130 AS id, ?131 AS meta_tag
+  UNION ALL SELECT ?132 AS id, ?133 AS meta_tag
+  UNION ALL SELECT ?134 AS id, ?135 AS meta_tag
+  UNION ALL SELECT ?136 AS id, ?137 AS meta_tag
+  UNION ALL SELECT ?138 AS id, ?139 AS meta_tag
+  UNION ALL SELECT ?140 AS id, ?141 AS meta_tag
+  UNION ALL SELECT ?142 AS id, ?143 AS meta_tag
+  UNION ALL SELECT ?144 AS id, ?145 AS meta_tag
+  UNION ALL SELECT ?146 AS id, ?147 AS meta_tag
+  UNION ALL SELECT ?148 AS id, ?149 AS meta_tag
+  UNION ALL SELECT ?150 AS id, ?151 AS meta_tag
+  UNION ALL SELECT ?152 AS id, ?153 AS meta_tag
+  UNION ALL SELECT ?154 AS id, ?155 AS meta_tag
+  UNION ALL SELECT ?156 AS id, ?157 AS meta_tag
+  UNION ALL SELECT ?158 AS id, ?159 AS meta_tag
+  UNION ALL SELECT ?160 AS id, ?161 AS meta_tag
+  UNION ALL SELECT ?162 AS id, ?163 AS meta_tag
+  UNION ALL SELECT ?164 AS id, ?165 AS meta_tag
+  UNION ALL SELECT ?166 AS id, ?167 AS meta_tag
+  UNION ALL SELECT ?168 AS id, ?169 AS meta_tag
+  UNION ALL SELECT ?170 AS id, ?171 AS meta_tag
+  UNION ALL SELECT ?172 AS id, ?173 AS meta_tag
+  UNION ALL SELECT ?174 AS id, ?175 AS meta_tag
+  UNION ALL SELECT ?176 AS id, ?177 AS meta_tag
+  UNION ALL SELECT ?178 AS id, ?179 AS meta_tag
+  UNION ALL SELECT ?180 AS id, ?181 AS meta_tag
+  UNION ALL SELECT ?182 AS id, ?183 AS meta_tag
+  UNION ALL SELECT ?184 AS id, ?185 AS meta_tag
+  UNION ALL SELECT ?186 AS id, ?187 AS meta_tag
+  UNION ALL SELECT ?188 AS id, ?189 AS meta_tag
+  UNION ALL SELECT ?190 AS id, ?191 AS meta_tag
+  UNION ALL SELECT ?192 AS id, ?193 AS meta_tag
+  UNION ALL SELECT ?194 AS id, ?195 AS meta_tag
+  UNION ALL SELECT ?196 AS id, ?197 AS meta_tag
+  UNION ALL SELECT ?198 AS id, ?199 AS meta_tag
+  UNION ALL SELECT ?200 AS id, ?201 AS meta_tag
+  UNION ALL SELECT ?202 AS id, ?203 AS meta_tag
+) AS e
+WHERE e.id IS NOT NULL
+  AND e.meta_tag IS NOT NULL
+`
+
+type InsertBlobEntriesByScopeAnd100EntriesParams struct {
+	Namespace string  `db:"namespace"`
+	Subject   int64   `db:"subject"`
+	BlobID    int64   `db:"blob_id"`
+	ID00      *int64  `db:"id_00"`
+	MetaTag00 *string `db:"meta_tag_00"`
+	ID01      *int64  `db:"id_01"`
+	MetaTag01 *string `db:"meta_tag_01"`
+	ID02      *int64  `db:"id_02"`
+	MetaTag02 *string `db:"meta_tag_02"`
+	ID03      *int64  `db:"id_03"`
+	MetaTag03 *string `db:"meta_tag_03"`
+	ID04      *int64  `db:"id_04"`
+	MetaTag04 *string `db:"meta_tag_04"`
+	ID05      *int64  `db:"id_05"`
+	MetaTag05 *string `db:"meta_tag_05"`
+	ID06      *int64  `db:"id_06"`
+	MetaTag06 *string `db:"meta_tag_06"`
+	ID07      *int64  `db:"id_07"`
+	MetaTag07 *string `db:"meta_tag_07"`
+	ID08      *int64  `db:"id_08"`
+	MetaTag08 *string `db:"meta_tag_08"`
+	ID09      *int64  `db:"id_09"`
+	MetaTag09 *string `db:"meta_tag_09"`
+	ID10      *int64  `db:"id_10"`
+	MetaTag10 *string `db:"meta_tag_10"`
+	ID11      *int64  `db:"id_11"`
+	MetaTag11 *string `db:"meta_tag_11"`
+	ID12      *int64  `db:"id_12"`
+	MetaTag12 *string `db:"meta_tag_12"`
+	ID13      *int64  `db:"id_13"`
+	MetaTag13 *string `db:"meta_tag_13"`
+	ID14      *int64  `db:"id_14"`
+	MetaTag14 *string `db:"meta_tag_14"`
+	ID15      *int64  `db:"id_15"`
+	MetaTag15 *string `db:"meta_tag_15"`
+	ID16      *int64  `db:"id_16"`
+	MetaTag16 *string `db:"meta_tag_16"`
+	ID17      *int64  `db:"id_17"`
+	MetaTag17 *string `db:"meta_tag_17"`
+	ID18      *int64  `db:"id_18"`
+	MetaTag18 *string `db:"meta_tag_18"`
+	ID19      *int64  `db:"id_19"`
+	MetaTag19 *string `db:"meta_tag_19"`
+	ID20      *int64  `db:"id_20"`
+	MetaTag20 *string `db:"meta_tag_20"`
+	ID21      *int64  `db:"id_21"`
+	MetaTag21 *string `db:"meta_tag_21"`
+	ID22      *int64  `db:"id_22"`
+	MetaTag22 *string `db:"meta_tag_22"`
+	ID23      *int64  `db:"id_23"`
+	MetaTag23 *string `db:"meta_tag_23"`
+	ID24      *int64  `db:"id_24"`
+	MetaTag24 *string `db:"meta_tag_24"`
+	ID25      *int64  `db:"id_25"`
+	MetaTag25 *string `db:"meta_tag_25"`
+	ID26      *int64  `db:"id_26"`
+	MetaTag26 *string `db:"meta_tag_26"`
+	ID27      *int64  `db:"id_27"`
+	MetaTag27 *string `db:"meta_tag_27"`
+	ID28      *int64  `db:"id_28"`
+	MetaTag28 *string `db:"meta_tag_28"`
+	ID29      *int64  `db:"id_29"`
+	MetaTag29 *string `db:"meta_tag_29"`
+	ID30      *int64  `db:"id_30"`
+	MetaTag30 *string `db:"meta_tag_30"`
+	ID31      *int64  `db:"id_31"`
+	MetaTag31 *string `db:"meta_tag_31"`
+	ID32      *int64  `db:"id_32"`
+	MetaTag32 *string `db:"meta_tag_32"`
+	ID33      *int64  `db:"id_33"`
+	MetaTag33 *string `db:"meta_tag_33"`
+	ID34      *int64  `db:"id_34"`
+	MetaTag34 *string `db:"meta_tag_34"`
+	ID35      *int64  `db:"id_35"`
+	MetaTag35 *string `db:"meta_tag_35"`
+	ID36      *int64  `db:"id_36"`
+	MetaTag36 *string `db:"meta_tag_36"`
+	ID37      *int64  `db:"id_37"`
+	MetaTag37 *string `db:"meta_tag_37"`
+	ID38      *int64  `db:"id_38"`
+	MetaTag38 *string `db:"meta_tag_38"`
+	ID39      *int64  `db:"id_39"`
+	MetaTag39 *string `db:"meta_tag_39"`
+	ID40      *int64  `db:"id_40"`
+	MetaTag40 *string `db:"meta_tag_40"`
+	ID41      *int64  `db:"id_41"`
+	MetaTag41 *string `db:"meta_tag_41"`
+	ID42      *int64  `db:"id_42"`
+	MetaTag42 *string `db:"meta_tag_42"`
+	ID43      *int64  `db:"id_43"`
+	MetaTag43 *string `db:"meta_tag_43"`
+	ID44      *int64  `db:"id_44"`
+	MetaTag44 *string `db:"meta_tag_44"`
+	ID45      *int64  `db:"id_45"`
+	MetaTag45 *string `db:"meta_tag_45"`
+	ID46      *int64  `db:"id_46"`
+	MetaTag46 *string `db:"meta_tag_46"`
+	ID47      *int64  `db:"id_47"`
+	MetaTag47 *string `db:"meta_tag_47"`
+	ID48      *int64  `db:"id_48"`
+	MetaTag48 *string `db:"meta_tag_48"`
+	ID49      *int64  `db:"id_49"`
+	MetaTag49 *string `db:"meta_tag_49"`
+	ID50      *int64  `db:"id_50"`
+	MetaTag50 *string `db:"meta_tag_50"`
+	ID51      *int64  `db:"id_51"`
+	MetaTag51 *string `db:"meta_tag_51"`
+	ID52      *int64  `db:"id_52"`
+	MetaTag52 *string `db:"meta_tag_52"`
+	ID53      *int64  `db:"id_53"`
+	MetaTag53 *string `db:"meta_tag_53"`
+	ID54      *int64  `db:"id_54"`
+	MetaTag54 *string `db:"meta_tag_54"`
+	ID55      *int64  `db:"id_55"`
+	MetaTag55 *string `db:"meta_tag_55"`
+	ID56      *int64  `db:"id_56"`
+	MetaTag56 *string `db:"meta_tag_56"`
+	ID57      *int64  `db:"id_57"`
+	MetaTag57 *string `db:"meta_tag_57"`
+	ID58      *int64  `db:"id_58"`
+	MetaTag58 *string `db:"meta_tag_58"`
+	ID59      *int64  `db:"id_59"`
+	MetaTag59 *string `db:"meta_tag_59"`
+	ID60      *int64  `db:"id_60"`
+	MetaTag60 *string `db:"meta_tag_60"`
+	ID61      *int64  `db:"id_61"`
+	MetaTag61 *string `db:"meta_tag_61"`
+	ID62      *int64  `db:"id_62"`
+	MetaTag62 *string `db:"meta_tag_62"`
+	ID63      *int64  `db:"id_63"`
+	MetaTag63 *string `db:"meta_tag_63"`
+	ID64      *int64  `db:"id_64"`
+	MetaTag64 *string `db:"meta_tag_64"`
+	ID65      *int64  `db:"id_65"`
+	MetaTag65 *string `db:"meta_tag_65"`
+	ID66      *int64  `db:"id_66"`
+	MetaTag66 *string `db:"meta_tag_66"`
+	ID67      *int64  `db:"id_67"`
+	MetaTag67 *string `db:"meta_tag_67"`
+	ID68      *int64  `db:"id_68"`
+	MetaTag68 *string `db:"meta_tag_68"`
+	ID69      *int64  `db:"id_69"`
+	MetaTag69 *string `db:"meta_tag_69"`
+	ID70      *int64  `db:"id_70"`
+	MetaTag70 *string `db:"meta_tag_70"`
+	ID71      *int64  `db:"id_71"`
+	MetaTag71 *string `db:"meta_tag_71"`
+	ID72      *int64  `db:"id_72"`
+	MetaTag72 *string `db:"meta_tag_72"`
+	ID73      *int64  `db:"id_73"`
+	MetaTag73 *string `db:"meta_tag_73"`
+	ID74      *int64  `db:"id_74"`
+	MetaTag74 *string `db:"meta_tag_74"`
+	ID75      *int64  `db:"id_75"`
+	MetaTag75 *string `db:"meta_tag_75"`
+	ID76      *int64  `db:"id_76"`
+	MetaTag76 *string `db:"meta_tag_76"`
+	ID77      *int64  `db:"id_77"`
+	MetaTag77 *string `db:"meta_tag_77"`
+	ID78      *int64  `db:"id_78"`
+	MetaTag78 *string `db:"meta_tag_78"`
+	ID79      *int64  `db:"id_79"`
+	MetaTag79 *string `db:"meta_tag_79"`
+	ID80      *int64  `db:"id_80"`
+	MetaTag80 *string `db:"meta_tag_80"`
+	ID81      *int64  `db:"id_81"`
+	MetaTag81 *string `db:"meta_tag_81"`
+	ID82      *int64  `db:"id_82"`
+	MetaTag82 *string `db:"meta_tag_82"`
+	ID83      *int64  `db:"id_83"`
+	MetaTag83 *string `db:"meta_tag_83"`
+	ID84      *int64  `db:"id_84"`
+	MetaTag84 *string `db:"meta_tag_84"`
+	ID85      *int64  `db:"id_85"`
+	MetaTag85 *string `db:"meta_tag_85"`
+	ID86      *int64  `db:"id_86"`
+	MetaTag86 *string `db:"meta_tag_86"`
+	ID87      *int64  `db:"id_87"`
+	MetaTag87 *string `db:"meta_tag_87"`
+	ID88      *int64  `db:"id_88"`
+	MetaTag88 *string `db:"meta_tag_88"`
+	ID89      *int64  `db:"id_89"`
+	MetaTag89 *string `db:"meta_tag_89"`
+	ID90      *int64  `db:"id_90"`
+	MetaTag90 *string `db:"meta_tag_90"`
+	ID91      *int64  `db:"id_91"`
+	MetaTag91 *string `db:"meta_tag_91"`
+	ID92      *int64  `db:"id_92"`
+	MetaTag92 *string `db:"meta_tag_92"`
+	ID93      *int64  `db:"id_93"`
+	MetaTag93 *string `db:"meta_tag_93"`
+	ID94      *int64  `db:"id_94"`
+	MetaTag94 *string `db:"meta_tag_94"`
+	ID95      *int64  `db:"id_95"`
+	MetaTag95 *string `db:"meta_tag_95"`
+	ID96      *int64  `db:"id_96"`
+	MetaTag96 *string `db:"meta_tag_96"`
+	ID97      *int64  `db:"id_97"`
+	MetaTag97 *string `db:"meta_tag_97"`
+	ID98      *int64  `db:"id_98"`
+	MetaTag98 *string `db:"meta_tag_98"`
+	ID99      *int64  `db:"id_99"`
+	MetaTag99 *string `db:"meta_tag_99"`
+}
+
+func (q *Queries) InsertBlobEntriesByScopeAnd100Entries(ctx context.Context, arg InsertBlobEntriesByScopeAnd100EntriesParams) error {
+	_, err := q.exec(ctx, q.insertBlobEntriesByScopeAnd100EntriesStmt, insertBlobEntriesByScopeAnd100Entries,
+		arg.Namespace,
+		arg.Subject,
+		arg.BlobID,
+		arg.ID00,
+		arg.MetaTag00,
+		arg.ID01,
+		arg.MetaTag01,
+		arg.ID02,
+		arg.MetaTag02,
+		arg.ID03,
+		arg.MetaTag03,
+		arg.ID04,
+		arg.MetaTag04,
+		arg.ID05,
+		arg.MetaTag05,
+		arg.ID06,
+		arg.MetaTag06,
+		arg.ID07,
+		arg.MetaTag07,
+		arg.ID08,
+		arg.MetaTag08,
+		arg.ID09,
+		arg.MetaTag09,
+		arg.ID10,
+		arg.MetaTag10,
+		arg.ID11,
+		arg.MetaTag11,
+		arg.ID12,
+		arg.MetaTag12,
+		arg.ID13,
+		arg.MetaTag13,
+		arg.ID14,
+		arg.MetaTag14,
+		arg.ID15,
+		arg.MetaTag15,
+		arg.ID16,
+		arg.MetaTag16,
+		arg.ID17,
+		arg.MetaTag17,
+		arg.ID18,
+		arg.MetaTag18,
+		arg.ID19,
+		arg.MetaTag19,
+		arg.ID20,
+		arg.MetaTag20,
+		arg.ID21,
+		arg.MetaTag21,
+		arg.ID22,
+		arg.MetaTag22,
+		arg.ID23,
+		arg.MetaTag23,
+		arg.ID24,
+		arg.MetaTag24,
+		arg.ID25,
+		arg.MetaTag25,
+		arg.ID26,
+		arg.MetaTag26,
+		arg.ID27,
+		arg.MetaTag27,
+		arg.ID28,
+		arg.MetaTag28,
+		arg.ID29,
+		arg.MetaTag29,
+		arg.ID30,
+		arg.MetaTag30,
+		arg.ID31,
+		arg.MetaTag31,
+		arg.ID32,
+		arg.MetaTag32,
+		arg.ID33,
+		arg.MetaTag33,
+		arg.ID34,
+		arg.MetaTag34,
+		arg.ID35,
+		arg.MetaTag35,
+		arg.ID36,
+		arg.MetaTag36,
+		arg.ID37,
+		arg.MetaTag37,
+		arg.ID38,
+		arg.MetaTag38,
+		arg.ID39,
+		arg.MetaTag39,
+		arg.ID40,
+		arg.MetaTag40,
+		arg.ID41,
+		arg.MetaTag41,
+		arg.ID42,
+		arg.MetaTag42,
+		arg.ID43,
+		arg.MetaTag43,
+		arg.ID44,
+		arg.MetaTag44,
+		arg.ID45,
+		arg.MetaTag45,
+		arg.ID46,
+		arg.MetaTag46,
+		arg.ID47,
+		arg.MetaTag47,
+		arg.ID48,
+		arg.MetaTag48,
+		arg.ID49,
+		arg.MetaTag49,
+		arg.ID50,
+		arg.MetaTag50,
+		arg.ID51,
+		arg.MetaTag51,
+		arg.ID52,
+		arg.MetaTag52,
+		arg.ID53,
+		arg.MetaTag53,
+		arg.ID54,
+		arg.MetaTag54,
+		arg.ID55,
+		arg.MetaTag55,
+		arg.ID56,
+		arg.MetaTag56,
+		arg.ID57,
+		arg.MetaTag57,
+		arg.ID58,
+		arg.MetaTag58,
+		arg.ID59,
+		arg.MetaTag59,
+		arg.ID60,
+		arg.MetaTag60,
+		arg.ID61,
+		arg.MetaTag61,
+		arg.ID62,
+		arg.MetaTag62,
+		arg.ID63,
+		arg.MetaTag63,
+		arg.ID64,
+		arg.MetaTag64,
+		arg.ID65,
+		arg.MetaTag65,
+		arg.ID66,
+		arg.MetaTag66,
+		arg.ID67,
+		arg.MetaTag67,
+		arg.ID68,
+		arg.MetaTag68,
+		arg.ID69,
+		arg.MetaTag69,
+		arg.ID70,
+		arg.MetaTag70,
+		arg.ID71,
+		arg.MetaTag71,
+		arg.ID72,
+		arg.MetaTag72,
+		arg.ID73,
+		arg.MetaTag73,
+		arg.ID74,
+		arg.MetaTag74,
+		arg.ID75,
+		arg.MetaTag75,
+		arg.ID76,
+		arg.MetaTag76,
+		arg.ID77,
+		arg.MetaTag77,
+		arg.ID78,
+		arg.MetaTag78,
+		arg.ID79,
+		arg.MetaTag79,
+		arg.ID80,
+		arg.MetaTag80,
+		arg.ID81,
+		arg.MetaTag81,
+		arg.ID82,
+		arg.MetaTag82,
+		arg.ID83,
+		arg.MetaTag83,
+		arg.ID84,
+		arg.MetaTag84,
+		arg.ID85,
+		arg.MetaTag85,
+		arg.ID86,
+		arg.MetaTag86,
+		arg.ID87,
+		arg.MetaTag87,
+		arg.ID88,
+		arg.MetaTag88,
+		arg.ID89,
+		arg.MetaTag89,
+		arg.ID90,
+		arg.MetaTag90,
+		arg.ID91,
+		arg.MetaTag91,
+		arg.ID92,
+		arg.MetaTag92,
+		arg.ID93,
+		arg.MetaTag93,
+		arg.ID94,
+		arg.MetaTag94,
+		arg.ID95,
+		arg.MetaTag95,
+		arg.ID96,
+		arg.MetaTag96,
+		arg.ID97,
+		arg.MetaTag97,
+		arg.ID98,
+		arg.MetaTag98,
+		arg.ID99,
+		arg.MetaTag99,
+	)
+	return err
+}
+
+const insertBlobEntriesByScopeAnd10Entries = `-- name: InsertBlobEntriesByScopeAnd10Entries :exec
+INSERT OR IGNORE INTO blob_entries (
+  namespace,
+  subject,
+  id,
+  meta_tag,
+  blob_id
+)
+SELECT
+  ?1,
+  ?2,
+  e.id,
+  e.meta_tag,
+  ?3
+FROM (SELECT ?4 AS id, ?5 AS meta_tag
+  UNION ALL SELECT ?6 AS id, ?7 AS meta_tag
+  UNION ALL SELECT ?8 AS id, ?9 AS meta_tag
+  UNION ALL SELECT ?10 AS id, ?11 AS meta_tag
+  UNION ALL SELECT ?12 AS id, ?13 AS meta_tag
+  UNION ALL SELECT ?14 AS id, ?15 AS meta_tag
+  UNION ALL SELECT ?16 AS id, ?17 AS meta_tag
+  UNION ALL SELECT ?18 AS id, ?19 AS meta_tag
+  UNION ALL SELECT ?20 AS id, ?21 AS meta_tag
+  UNION ALL SELECT ?22 AS id, ?23 AS meta_tag) AS e
+WHERE e.id IS NOT NULL
+  AND e.meta_tag IS NOT NULL
+`
+
+type InsertBlobEntriesByScopeAnd10EntriesParams struct {
+	Namespace string  `db:"namespace"`
+	Subject   int64   `db:"subject"`
+	BlobID    int64   `db:"blob_id"`
+	ID00      *int64  `db:"id_00"`
+	MetaTag00 *string `db:"meta_tag_00"`
+	ID01      *int64  `db:"id_01"`
+	MetaTag01 *string `db:"meta_tag_01"`
+	ID02      *int64  `db:"id_02"`
+	MetaTag02 *string `db:"meta_tag_02"`
+	ID03      *int64  `db:"id_03"`
+	MetaTag03 *string `db:"meta_tag_03"`
+	ID04      *int64  `db:"id_04"`
+	MetaTag04 *string `db:"meta_tag_04"`
+	ID05      *int64  `db:"id_05"`
+	MetaTag05 *string `db:"meta_tag_05"`
+	ID06      *int64  `db:"id_06"`
+	MetaTag06 *string `db:"meta_tag_06"`
+	ID07      *int64  `db:"id_07"`
+	MetaTag07 *string `db:"meta_tag_07"`
+	ID08      *int64  `db:"id_08"`
+	MetaTag08 *string `db:"meta_tag_08"`
+	ID09      *int64  `db:"id_09"`
+	MetaTag09 *string `db:"meta_tag_09"`
+}
+
+func (q *Queries) InsertBlobEntriesByScopeAnd10Entries(ctx context.Context, arg InsertBlobEntriesByScopeAnd10EntriesParams) error {
+	_, err := q.exec(ctx, q.insertBlobEntriesByScopeAnd10EntriesStmt, insertBlobEntriesByScopeAnd10Entries,
+		arg.Namespace,
+		arg.Subject,
+		arg.BlobID,
+		arg.ID00,
+		arg.MetaTag00,
+		arg.ID01,
+		arg.MetaTag01,
+		arg.ID02,
+		arg.MetaTag02,
+		arg.ID03,
+		arg.MetaTag03,
+		arg.ID04,
+		arg.MetaTag04,
+		arg.ID05,
+		arg.MetaTag05,
+		arg.ID06,
+		arg.MetaTag06,
+		arg.ID07,
+		arg.MetaTag07,
+		arg.ID08,
+		arg.MetaTag08,
+		arg.ID09,
+		arg.MetaTag09,
+	)
+	return err
+}
