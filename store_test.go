@@ -39,6 +39,22 @@ const TESTTYPE_NAMESPACE = "testType"
 
 const TESTTYPEMANAGER_NAMESPACE = "testTypeManager"
 
+const nilTestInnerTypeID = -1
+
+const (
+	filterNamespace = 1 << iota
+	filterSubject
+	filterID
+	filterMetaTag
+)
+
+var (
+	testNamespaceValues = []string{TESTTYPE_NAMESPACE, "testTypeAlt"}
+	testSubjectValues   = []int{100, 200, 300}
+	testIdentityValues  = []int{1, 2, 3, 1000}
+	testMetaTagValues   = []string{"testType", "field_value", "field_ptr", "fields_value", "fields_ptr"}
+)
+
 func newTestStore(t *testing.T) kvstore.Store {
 	t.Helper()
 
@@ -46,6 +62,7 @@ func newTestStore(t *testing.T) kvstore.Store {
 	if err != nil {
 		t.Fatalf("open test sqlite db: %v", err)
 	}
+	conn.SetMaxOpenConns(1)
 	t.Cleanup(func() {
 		if err := conn.Close(); err != nil {
 			t.Errorf("close test sqlite db: %v", err)
@@ -66,6 +83,7 @@ func newClosedTestStore(t *testing.T) kvstore.Store {
 	if err != nil {
 		t.Fatalf("open closed test sqlite db: %v", err)
 	}
+	conn.SetMaxOpenConns(1)
 	if err := kvstore.InitDB(conn); err != nil {
 		t.Fatalf("create closed test schema: %v", err)
 	}
@@ -162,18 +180,22 @@ func requireCount(t *testing.T, store kvstore.Store, filter kvstore.EntryFilter,
 func requireDecodedTestTypes(t *testing.T, got []any, want ...*testType) {
 	t.Helper()
 
+	if len(got) != len(want) {
+		t.Fatalf("decoded len = %d, want %d", len(got), len(want))
+	}
+
 	gotByID := make(map[int]*testType, len(got))
 	for _, item := range got {
 		decoded, ok := item.(*testType)
 		if !ok {
 			t.Fatalf("decoded item type = %T, want *testType", item)
 		}
+		if _, exists := gotByID[decoded.id]; exists {
+			t.Fatalf("duplicate decoded testType %d", decoded.id)
+		}
 		gotByID[decoded.id] = decoded
 	}
 
-	if len(gotByID) != len(want) {
-		t.Fatalf("decoded len = %d, want %d", len(gotByID), len(want))
-	}
 	for _, expected := range want {
 		actual, ok := gotByID[expected.id]
 		if !ok {
@@ -216,24 +238,23 @@ func testTypesEqual(a, b *testType) bool {
 }
 
 func testTypeNamespaceFilter() kvstore.EntryFilter {
-	return kvstore.EntryFilter{Namespace: ptr(TESTTYPE_NAMESPACE)}
+	namespace := TESTTYPE_NAMESPACE
+	return kvstore.EntryFilter{Namespace: &namespace}
 }
 
 func testTypeScopeFilter(subject int) kvstore.EntryFilter {
-	return kvstore.EntryFilter{Namespace: ptr(TESTTYPE_NAMESPACE), Subject: &subject}
+	namespace := TESTTYPE_NAMESPACE
+	return kvstore.EntryFilter{Namespace: &namespace, Subject: &subject}
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
+func requireDecodedByFilter(t *testing.T, store kvstore.Store, filter kvstore.EntryFilter, want ...*testType) {
+	t.Helper()
 
-func sortedIDs(testTypes []*testType) []int {
-	ids := make([]int, len(testTypes))
-	for i, testType := range testTypes {
-		ids[i] = testType.id
+	got, err := store.GetByFilter(filter, decodeTestType)
+	if err != nil {
+		t.Fatalf("get by filter: %v", err)
 	}
-	sort.Ints(ids)
-	return ids
+	requireDecodedTestTypes(t, got, want...)
 }
 
 func TestStoreStoreAndGetByFilter(t *testing.T) {
@@ -254,12 +275,14 @@ func TestStoreCount(t *testing.T) {
 
 	requireCount(t, store, testTypeNamespaceFilter(), 3)
 	requireCount(t, store, testTypeScopeFilter(100), 2)
-	requireCount(t, store, kvstore.EntryFilter{ID: ptr(1), MetaTag: ptr("testType")}, 1)
+	id := 1
+	metaTag := "testType"
+	requireCount(t, store, kvstore.EntryFilter{ID: &id, MetaTag: &metaTag}, 1)
 }
 
 func TestStoreClearByScope(t *testing.T) {
 	store := newTestStore(t)
-	storeMockTestTypes(t, store)
+	testTypes := storeMockTestTypes(t, store)
 
 	if err := store.ClearByScope(kvstore.Scope{Namespace: TESTTYPE_NAMESPACE, Subject: 100}); err != nil {
 		t.Fatalf("clear by scope: %v", err)
@@ -268,23 +291,27 @@ func TestStoreClearByScope(t *testing.T) {
 	requireCount(t, store, testTypeNamespaceFilter(), 1)
 	requireCount(t, store, testTypeScopeFilter(100), 0)
 	requireCount(t, store, testTypeScopeFilter(200), 1)
+	requireDecodedByFilter(t, store, testTypeNamespaceFilter(), testTypes[2])
 }
 
 func TestStoreClearByIdentity(t *testing.T) {
 	store := newTestStore(t)
-	storeMockTestTypes(t, store)
+	testTypes := storeMockTestTypes(t, store)
 
 	if err := store.ClearByIdentity(kvstore.Identity{ID: 1, MetaTag: "testType"}); err != nil {
 		t.Fatalf("clear by identity: %v", err)
 	}
 
 	requireCount(t, store, testTypeNamespaceFilter(), 2)
-	requireCount(t, store, kvstore.EntryFilter{ID: ptr(1), MetaTag: ptr("testType")}, 0)
+	id := 1
+	metaTag := "testType"
+	requireCount(t, store, kvstore.EntryFilter{ID: &id, MetaTag: &metaTag}, 0)
+	requireDecodedByFilter(t, store, testTypeNamespaceFilter(), testTypes[1], testTypes[2])
 }
 
 func TestStoreClearByFilter(t *testing.T) {
 	store := newTestStore(t)
-	storeMockTestTypes(t, store)
+	testTypes := storeMockTestTypes(t, store)
 
 	if err := store.ClearByFilter(testTypeScopeFilter(200)); err != nil {
 		t.Fatalf("clear by filter: %v", err)
@@ -292,6 +319,7 @@ func TestStoreClearByFilter(t *testing.T) {
 
 	requireCount(t, store, testTypeNamespaceFilter(), 2)
 	requireCount(t, store, testTypeScopeFilter(200), 0)
+	requireDecodedByFilter(t, store, testTypeNamespaceFilter(), testTypes[0], testTypes[1])
 }
 
 func TestStoreClearEverything(t *testing.T) {
@@ -303,6 +331,7 @@ func TestStoreClearEverything(t *testing.T) {
 	}
 
 	requireCount(t, store, testTypeNamespaceFilter(), 0)
+	requireDecodedByFilter(t, store, testTypeNamespaceFilter())
 }
 
 func TestStoreClearByBlobKey(t *testing.T) {
@@ -314,7 +343,10 @@ func TestStoreClearByBlobKey(t *testing.T) {
 	}
 
 	requireCount(t, store, testTypeNamespaceFilter(), 2)
-	requireCount(t, store, kvstore.EntryFilter{ID: ptr(testTypes[0].id), MetaTag: ptr("testType")}, 0)
+	id := testTypes[0].id
+	metaTag := "testType"
+	requireCount(t, store, kvstore.EntryFilter{ID: &id, MetaTag: &metaTag}, 0)
+	requireDecodedByFilter(t, store, testTypeNamespaceFilter(), testTypes[1], testTypes[2])
 }
 
 func TestStoreStoresHundredIdentityBatches(t *testing.T) {
@@ -326,8 +358,12 @@ func TestStoreStoresHundredIdentityBatches(t *testing.T) {
 	}
 
 	requireCount(t, store, testTypeNamespaceFilter(), 1)
-	requireCount(t, store, kvstore.EntryFilter{ID: ptr(1_099), MetaTag: ptr("fields_value")}, 1)
-	requireCount(t, store, kvstore.EntryFilter{ID: ptr(1_104), MetaTag: ptr("fields_value")}, 1)
+	id1099 := 1_099
+	id1104 := 1_104
+	metaTag := "fields_value"
+	requireCount(t, store, kvstore.EntryFilter{ID: &id1099, MetaTag: &metaTag}, 1)
+	requireCount(t, store, kvstore.EntryFilter{ID: &id1104, MetaTag: &metaTag}, 1)
+	requireDecodedByFilter(t, store, testTypeNamespaceFilter(), testType)
 }
 
 func TestStoreOverwritesExistingBlob(t *testing.T) {
@@ -342,11 +378,53 @@ func TestStoreOverwritesExistingBlob(t *testing.T) {
 		t.Fatalf("store updated testType: %v", err)
 	}
 
-	got, err := store.GetByFilter(kvstore.EntryFilter{ID: ptr(testType.id), MetaTag: ptr("testType")}, decodeTestType)
+	id := testType.id
+	metaTag := "testType"
+	got, err := store.GetByFilter(kvstore.EntryFilter{ID: &id, MetaTag: &metaTag}, decodeTestType)
 	if err != nil {
 		t.Fatalf("get updated testType: %v", err)
 	}
 	requireDecodedTestTypes(t, got, testType)
+}
+
+func TestStoreGetByFilterAllPermutations(t *testing.T) {
+	store := newTestStore(t)
+	fixture := mockFilterPermutationFixture(t, store)
+
+	namespace := testNamespaceValues[0]
+	subject := testSubjectValues[0]
+	id := testIdentityValues[0]
+	metaTag := testMetaTagValues[0]
+	for _, tc := range filterPermutations(namespace, subject, id, metaTag, fixture.associations) {
+		t.Run(tc.name, func(t *testing.T) {
+			requireCount(t, store, tc.filter, len(tc.want))
+			requireDecodedByFilter(t, store, tc.filter, tc.want...)
+		})
+	}
+}
+
+func TestEncodeDecodeTestTypeRoundTrip(t *testing.T) {
+	innerTypes := mockTestInnerTypes()
+	testTypes := append(mockTestTypes(), &testType{
+		id:           4,
+		shared_id:    300,
+		field_value:  innerTypes[0],
+		field_ptr:    nil,
+		fields_value: nil,
+		fields_ptr:   []*testInnerType{nil, &innerTypes[1]},
+	})
+
+	for _, testType := range testTypes {
+		data, err := encodeTestType(testType)
+		if err != nil {
+			t.Fatalf("encode testType %d: %v", testType.id, err)
+		}
+		got, err := decodeTestType(data)
+		if err != nil {
+			t.Fatalf("decode testType %d: %v", testType.id, err)
+		}
+		requireDecodedTestTypes(t, []any{got}, testType)
+	}
 }
 
 func TestStoreErrorsOnMissingBlobKey(t *testing.T) {
@@ -475,6 +553,133 @@ func (t testStoreItem) ItemArgs() kvstore.ItemArgs {
 	return t.args
 }
 
+type expectedAssociation struct {
+	namespace string
+	subject   int
+	id        int
+	metaTag   string
+	item      *testType
+}
+
+type filterPermutationFixture struct {
+	items        []*testType
+	associations []expectedAssociation
+}
+
+type filterPermutationCase struct {
+	name   string
+	filter kvstore.EntryFilter
+	want   []*testType
+}
+
+func storeAssociation(t *testing.T, store kvstore.Store, item *testType, namespace string, subject int, id int, metaTag string) expectedAssociation {
+	t.Helper()
+
+	args := item.ItemArgs()
+	args.Scope = kvstore.Scope{Namespace: namespace, Subject: subject}
+	args.Identities = []kvstore.Identity{{ID: id, MetaTag: metaTag}}
+	if err := store.Store(testStoreItem{args: args}); err != nil {
+		t.Fatalf("store association %s/%d/%d/%s: %v", namespace, subject, id, metaTag, err)
+	}
+
+	return expectedAssociation{
+		namespace: namespace,
+		subject:   subject,
+		id:        id,
+		metaTag:   metaTag,
+		item:      item,
+	}
+}
+
+func mockFilterPermutationFixture(t *testing.T, store kvstore.Store) filterPermutationFixture {
+	t.Helper()
+
+	items := mockTestTypes()
+	namespace := testNamespaceValues[0]
+	altNamespace := testNamespaceValues[1]
+	subject := testSubjectValues[0]
+	altSubject := testSubjectValues[1]
+	id := testIdentityValues[0]
+	altID := testIdentityValues[1]
+	metaTag := testMetaTagValues[0]
+	altMetaTag := testMetaTagValues[1]
+
+	associations := []expectedAssociation{
+		storeAssociation(t, store, items[0], namespace, subject, id, metaTag),
+		storeAssociation(t, store, items[1], namespace, subject, altID, metaTag),
+		storeAssociation(t, store, items[2], namespace, altSubject, id, metaTag),
+		storeAssociation(t, store, items[0], altNamespace, subject, id, metaTag),
+		storeAssociation(t, store, items[1], namespace, subject, id, altMetaTag),
+		storeAssociation(t, store, items[2], namespace, subject, id, metaTag),
+	}
+
+	return filterPermutationFixture{items: items, associations: associations}
+}
+
+func filterPermutations(namespace string, subject int, id int, metaTag string, associations []expectedAssociation) []filterPermutationCase {
+	cases := make([]filterPermutationCase, 0, 16)
+	for mask := 0; mask < 16; mask++ {
+		var filter kvstore.EntryFilter
+		name := "filter"
+		if mask == 0 {
+			name += "_empty"
+		}
+		if mask&filterNamespace != 0 {
+			filter.Namespace = &namespace
+			name += "_namespace"
+		}
+		if mask&filterSubject != 0 {
+			filter.Subject = &subject
+			name += "_subject"
+		}
+		if mask&filterID != 0 {
+			filter.ID = &id
+			name += "_id"
+		}
+		if mask&filterMetaTag != 0 {
+			filter.MetaTag = &metaTag
+			name += "_metaTag"
+		}
+
+		cases = append(cases, filterPermutationCase{
+			name:   name,
+			filter: filter,
+			want:   expectedForFilter(filter, associations),
+		})
+	}
+
+	return cases
+}
+
+func expectedForFilter(filter kvstore.EntryFilter, associations []expectedAssociation) []*testType {
+	seen := make(map[string]*testType)
+	for _, association := range associations {
+		if filter.Namespace != nil && association.namespace != *filter.Namespace {
+			continue
+		}
+		if filter.Subject != nil && association.subject != *filter.Subject {
+			continue
+		}
+		if filter.ID != nil && association.id != *filter.ID {
+			continue
+		}
+		if filter.MetaTag != nil && association.metaTag != *filter.MetaTag {
+			continue
+		}
+		seen[association.item.ItemArgs().BlobKey] = association.item
+	}
+
+	out := make([]*testType, 0, len(seen))
+	for _, item := range seen {
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].ItemArgs().BlobKey < out[j].ItemArgs().BlobKey
+	})
+
+	return out
+}
+
 func (t *testTypeManager) ItemArgs() kvstore.ItemArgs {
 	return kvstore.ItemArgs{
 		Scope: kvstore.Scope{
@@ -565,16 +770,24 @@ func decodeTestType(data []byte) (any, error) {
 		return nil, err
 	}
 
+	var fieldPtr *testInnerType
+	if wire.FieldPtr.ID != nilTestInnerTypeID {
+		fieldPtr = &testInnerType{ID: wire.FieldPtr.ID, Title: wire.FieldPtr.Title}
+	}
+
 	fieldsPtr := make([]*testInnerType, len(wire.FieldsPtr))
-	for i := range wire.FieldsPtr {
-		fieldsPtr[i] = &wire.FieldsPtr[i]
+	for i, field := range wire.FieldsPtr {
+		if field.ID == nilTestInnerTypeID {
+			continue
+		}
+		fieldsPtr[i] = &testInnerType{ID: field.ID, Title: field.Title}
 	}
 
 	return &testType{
 		id:           wire.ID,
 		shared_id:    wire.SharedID,
 		field_value:  wire.FieldValue,
-		field_ptr:    &wire.FieldPtr,
+		field_ptr:    fieldPtr,
 		fields_value: wire.FieldsValue,
 		fields_ptr:   fieldsPtr,
 	}, nil
@@ -584,9 +797,14 @@ type testTypeWire struct {
 	ID          int
 	SharedID    int
 	FieldValue  testInnerType
-	FieldPtr    testInnerType
+	FieldPtr    testInnerTypeWire
 	FieldsValue []testInnerType
-	FieldsPtr   []testInnerType
+	FieldsPtr   []testInnerTypeWire
+}
+
+type testInnerTypeWire struct {
+	ID    int
+	Title string
 }
 
 func encodeTestType(t any) ([]byte, error) {
@@ -594,23 +812,25 @@ func encodeTestType(t any) ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("encode testType: expected *testType, got %T", t)
 	}
-	if v.field_ptr == nil {
-		return nil, fmt.Errorf("encode testType: field_ptr is nil")
+	fieldPtr := testInnerTypeWire{ID: nilTestInnerTypeID}
+	if v.field_ptr != nil {
+		fieldPtr = testInnerTypeWire{ID: v.field_ptr.ID, Title: v.field_ptr.Title}
 	}
 
-	fieldsPtr := make([]testInnerType, len(v.fields_ptr))
+	fieldsPtr := make([]testInnerTypeWire, len(v.fields_ptr))
 	for i, innerType := range v.fields_ptr {
 		if innerType == nil {
-			return nil, fmt.Errorf("encode testType: fields_ptr[%d] is nil", i)
+			fieldsPtr[i] = testInnerTypeWire{ID: nilTestInnerTypeID}
+			continue
 		}
-		fieldsPtr[i] = *innerType
+		fieldsPtr[i] = testInnerTypeWire{ID: innerType.ID, Title: innerType.Title}
 	}
 
 	wire := testTypeWire{
 		ID:          v.id,
 		SharedID:    v.shared_id,
 		FieldValue:  v.field_value,
-		FieldPtr:    *v.field_ptr,
+		FieldPtr:    fieldPtr,
 		FieldsValue: v.fields_value,
 		FieldsPtr:   fieldsPtr,
 	}
